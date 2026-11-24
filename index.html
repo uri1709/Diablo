@@ -1,0 +1,3409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Диабло — превью: три уровня</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23140f0c'/%3E%3Cpath d='M25 4l3 3-14 14-4-4z' fill='%23cfd8e6'/%3E%3Cpath d='M9 18l-4 4 5 5 4-4z' fill='%23c8a24a'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --gold:#c8a24a;
+    --gold-dim:#6d5730;
+    --orb:118px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#070605;color:#e9dcc2;
+    font-family:"Segoe UI",Roboto,system-ui,Arial,sans-serif;-webkit-font-smoothing:antialiased;
+    user-select:none;-webkit-user-select:none;touch-action:none}
+  button{font-family:inherit;-webkit-tap-highlight-color:transparent}
+  #game{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+  /* ================= STAGE ================= */
+  #stage{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;background:#0a0807}
+  canvas#cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+
+  #objective{position:absolute;left:14px;top:12px;z-index:6;padding:8px 14px;border-radius:6px;
+    background:linear-gradient(180deg,rgba(22,17,12,.92),rgba(9,7,6,.92));
+    border:1px solid #4a3a24;box-shadow:0 2px 10px rgba(0,0,0,.8),inset 0 0 12px rgba(0,0,0,.6);
+    font-size:13px;letter-spacing:.4px;color:#c3b18b;pointer-events:none}
+  #objective b{color:#f0dca8;font-weight:600}
+
+  #bossbar{position:absolute;left:50%;top:56px;z-index:6;width:min(460px,54vw);
+    transform:translate(-50%,-8px);opacity:0;pointer-events:none;
+    transition:opacity .3s ease,transform .3s ease}
+  #bossbar.on{opacity:1;transform:translate(-50%,0)}
+  .boss-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px;
+    text-shadow:0 2px 6px #000,0 0 12px rgba(0,0,0,.8)}
+  .boss-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#c98866}
+  .boss-name{font-family:Georgia,"Times New Roman",serif;font-size:15px;letter-spacing:.8px;color:#f0cf9a}
+  .boss-hpbar{height:12px;border-radius:7px;background:#100807;border:1px solid #6a3a26;
+    box-shadow:0 0 0 2px #0a0706,inset 0 0 10px #000,0 4px 14px rgba(0,0,0,.85);overflow:hidden}
+  #bossFill{height:100%;width:100%;border-radius:6px;
+    background:linear-gradient(180deg,#ff8a5a,#c11a22 55%,#5c0008);
+    box-shadow:0 0 12px rgba(255,60,30,.55);transition:width .18s ease}
+
+  #dmgFlash{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;
+    background:radial-gradient(ellipse at 50% 55%,rgba(180,0,10,0) 32%,rgba(170,0,12,.8) 100%)}
+
+  /* cinematic bars + caption */
+  #cineTop,#cineBot{position:absolute;left:0;right:0;height:0;background:#030202;z-index:8;
+    pointer-events:none;transition:height .7s cubic-bezier(.2,.7,.2,1)}
+  #cineTop{top:0}
+  #cineBot{bottom:0}
+  #cineTop.on,#cineBot.on{height:56px}
+  #cineText{position:absolute;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:8px;pointer-events:none;opacity:0;transform:scale(.96);
+    transition:opacity .5s ease,transform .5s ease;text-align:center;padding:0 20px}
+  #cineText.on{opacity:1;transform:scale(1)}
+  #cineText b{font-family:Georgia,"Times New Roman",serif;font-size:clamp(34px,6vw,72px);
+    letter-spacing:.14em;line-height:1;color:#ffb28a;
+    text-shadow:0 0 18px rgba(255,70,20,.75),0 4px 0 #1a0503,0 0 60px rgba(180,20,0,.5)}
+  #cineText span{font-size:12px;letter-spacing:.45em;text-transform:uppercase;color:#c79b7a;
+    text-shadow:0 2px 8px #000}
+
+  /* map block inside the hero panel */
+  .map-block{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:5px 5px 4px;border-radius:8px;
+    background:linear-gradient(180deg,#1c1611,#0c0908);
+    border:1px solid #4a3a24;box-shadow:0 0 0 2px #0a0706,inset 0 0 12px #000,0 4px 14px rgba(0,0,0,.6)}
+  #mm{display:block;width:180px;height:132px;border-radius:3px;background:#0d0a0f}
+  .map-meta{display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.15;white-space:nowrap}
+  .depth-label{font-size:9px;letter-spacing:1.6px;text-transform:uppercase;color:#9a8458}
+  .depth-label b{color:#f0d38a;font-size:11px;letter-spacing:.4px}
+  .boss-eta{font-size:9px;letter-spacing:1.1px;text-transform:uppercase;color:#a8644a}
+  .boss-eta.now{color:#ff8a5a;text-shadow:0 0 10px rgba(255,80,30,.6)}
+  .mini-meta{display:none;font-size:10px;letter-spacing:1px;color:#b08a5a;text-transform:uppercase}
+
+  #toast{position:absolute;left:50%;bottom:20px;z-index:7;transform:translate(-50%,12px);opacity:0;
+    padding:8px 20px;border-radius:20px;background:rgba(10,8,6,.9);border:1px solid #5a4626;
+    box-shadow:0 4px 18px rgba(0,0,0,.8);font-size:14px;letter-spacing:.5px;white-space:nowrap;
+    pointer-events:none;transition:opacity .25s ease,transform .25s ease;color:#e8d6a8}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  /* ================= HUD ================= */
+  #hud{position:relative;flex:0 0 auto;height:188px;display:flex;align-items:center;justify-content:center;
+    gap:clamp(10px,3.4vw,54px);padding:8px clamp(8px,2.5vw,30px);
+    background:linear-gradient(180deg,#27211b 0%,#1a1512 42%,#0e0b09 100%);
+    border-top:2px solid #6b5638;
+    box-shadow:inset 0 3px 0 #302619,inset 0 -20px 40px rgba(0,0,0,.85),0 -14px 34px rgba(0,0,0,.75)}
+  #hud::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+    background:
+      repeating-linear-gradient(90deg,rgba(255,255,255,.022) 0 2px,transparent 2px 7px),
+      radial-gradient(ellipse at 50% 0%,rgba(200,160,80,.13),transparent 62%)}
+
+  .orb-block{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+
+  .orb{position:relative;width:var(--orb);height:var(--orb);border-radius:50%;overflow:hidden;
+    border:3px solid #5e4a29;
+    background:radial-gradient(circle at 50% 60%,#1b1416 0%,#080608 74%);
+    box-shadow:0 0 0 3px #0b0806,0 6px 18px rgba(0,0,0,.85),
+      inset 0 0 26px rgba(0,0,0,.9),inset 0 8px 18px rgba(255,255,255,.06);
+    transition:box-shadow .3s ease}
+  .orb .liquid{position:absolute;left:0;right:0;bottom:0;height:70%;transition:height .22s ease-out}
+  #hpLiquid{background:linear-gradient(180deg,#ff6f6f 0%,#c0182f 42%,#5f0012 100%)}
+  #mpLiquid{background:linear-gradient(180deg,#82cbff 0%,#1d63c9 45%,#0a1d58 100%)}
+  .liquid::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(100deg,rgba(0,0,0,.45),transparent 35%,rgba(255,255,255,.15) 52%,transparent 68%,rgba(0,0,0,.5))}
+  .liq-wave{position:absolute;left:0;top:-14px;width:200%;height:22px;opacity:.9;
+    animation:waveMove 4.5s linear infinite}
+  #mpLiquid .liq-wave{animation-duration:6.5s;animation-direction:reverse}
+  @keyframes waveMove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  .orb-gloss{position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;
+    background:
+      radial-gradient(circle at 32% 22%,rgba(255,255,255,.36),rgba(255,255,255,.05) 30%,transparent 46%),
+      radial-gradient(circle at 72% 86%,rgba(255,255,255,.1),transparent 38%)}
+  .orb-num{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:1px;font-family:Georgia,"Times New Roman",serif;font-weight:700;
+    text-shadow:0 2px 5px #000,0 0 14px rgba(0,0,0,.95);pointer-events:none}
+  .orb-num b{font-size:clamp(20px,2.5vw,30px);color:#fff6e2;line-height:1}
+  .orb-num i{font-style:normal;font-size:11px;color:rgba(255,240,215,.62);line-height:1}
+  .orb.low{animation:lowPulse 1.05s ease-in-out infinite}
+  @keyframes lowPulse{
+    0%,100%{box-shadow:0 0 0 3px #0b0806,0 6px 18px rgba(0,0,0,.85),inset 0 0 26px rgba(0,0,0,.9),inset 0 8px 18px rgba(255,255,255,.06)}
+    50%{box-shadow:0 0 0 3px #3a0a0a,0 0 24px rgba(230,40,40,.55),inset 0 0 26px rgba(60,0,0,.9),inset 0 8px 18px rgba(255,255,255,.06)}
+  }
+  .orb-caption{font-size:10px;letter-spacing:3.5px;text-transform:uppercase;color:#9a8458}
+
+  .potbtn{display:flex;align-items:center;gap:7px;padding:3px 11px 3px 5px;border-radius:16px;cursor:pointer;
+    background:linear-gradient(180deg,#211a13,#120e0a);border:1px solid #4b3a22;color:inherit;
+    box-shadow:0 2px 6px rgba(0,0,0,.6);transition:border-color .15s,transform .1s,opacity .15s}
+  .potbtn:hover{border-color:#b08c46;box-shadow:0 0 12px rgba(200,160,70,.25)}
+  .potbtn:active{transform:scale(.95)}
+  .potbtn .flask{width:17px;height:21px;filter:drop-shadow(0 1px 1px #000);flex:0 0 auto}
+  .potbtn b{font-size:13px;color:#f0dcae;min-width:10px;text-align:center}
+  .potbtn .kbd{font-size:9px;font-weight:700;color:#e3c887;background:#0d0a07;
+    border:1px solid #5a4526;border-radius:4px;padding:0 4px;line-height:14px}
+  .potbtn.empty{opacity:.45;filter:grayscale(.8)}
+
+  .center-panel{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:9px;
+    flex:0 1 420px;min-width:0;padding:0 4px}
+  .slots{display:flex;gap:14px}
+  .slot{position:relative;width:58px;height:58px;border-radius:10px;overflow:hidden;cursor:pointer;
+    background:radial-gradient(circle at 50% 28%,#31281f,#130f0c 74%);
+    border:2px solid #4e3c25;box-shadow:0 0 0 2px #0a0806,inset 0 0 14px #000,0 4px 10px rgba(0,0,0,.6);
+    display:grid;place-items:center;transition:border-color .15s,box-shadow .15s}
+  .slot:hover{border-color:#a08044;box-shadow:0 0 0 2px #0a0806,inset 0 0 14px #000,0 0 16px rgba(200,160,70,.3)}
+  .slot svg{width:34px;height:34px;filter:drop-shadow(0 2px 3px #000)}
+  .slot .key{position:absolute;right:2px;bottom:2px;z-index:2;font-size:9px;font-weight:700;
+    padding:1px 4px;border-radius:4px;background:#0d0a08;border:1px solid #5a4526;color:#d9bd7a;line-height:1.25}
+  .slot .cd{position:absolute;left:0;right:0;bottom:0;height:0%;background:rgba(0,0,0,.65);
+    pointer-events:none;z-index:1}
+
+  .xp-row{display:flex;align-items:center;gap:8px;width:100%;max-width:380px}
+  .lvl{font-size:11px;color:#9a8458;letter-spacing:2px;white-space:nowrap}
+  .lvl b{color:#f0d38a;font-size:14px;letter-spacing:0}
+  .xpbar{position:relative;flex:1;height:9px;border-radius:5px;background:#0b0908;
+    border:1px solid #3d2f1c;overflow:hidden;box-shadow:inset 0 1px 4px #000}
+  #xpFill{height:100%;width:0%;border-radius:4px;
+    background:linear-gradient(90deg,#8a6a24,#e7c766 60%,#fff0b8);
+    box-shadow:0 0 10px rgba(240,200,100,.6);transition:width .2s ease}
+  .xp-text{font-size:10px;color:#8d7a56;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+  .stats{font-size:12px;color:#9b8a6b;letter-spacing:.4px}
+  .stats b{color:#d8c08a}
+  .hint{font-size:10.5px;color:#6f6046;letter-spacing:.3px;text-align:center;
+    max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ================= OVERLAY ================= */
+  #overlay{position:absolute;inset:0;z-index:20;display:none;place-items:center;
+    background:radial-gradient(ellipse at 50% 40%,rgba(28,10,6,.55),rgba(3,2,2,.95) 72%);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  #overlay.on{display:grid;animation:fadeIn .35s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .ov-inner{text-align:center;padding:34px clamp(20px,6vw,70px);max-width:700px}
+  .ov-title{font-family:Georgia,"Times New Roman",serif;font-size:clamp(42px,8.4vw,88px);
+    margin:0 0 2px;letter-spacing:.12em;line-height:1;font-weight:700;
+    background:linear-gradient(180deg,#fff3c4,#e2b64c 42%,#8a5a1c 72%,#f7dc8e);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 0 #2a1206) drop-shadow(0 0 28px rgba(220,140,20,.35))}
+  .ov-title.dead{background:linear-gradient(180deg,#ffb0b0,#c21d2b 45%,#5c0009 78%,#ff7b7b);
+    -webkit-background-clip:text;background-clip:text;
+    filter:drop-shadow(0 4px 0 #1c0404) drop-shadow(0 0 28px rgba(200,20,30,.4))}
+  .ov-sub{font-size:12px;letter-spacing:.5em;text-transform:uppercase;color:#9d8557;margin-bottom:26px}
+  .ov-controls{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center;margin:0 auto 26px;
+    max-width:520px;font-size:13px;color:#b6a37e}
+  .ov-controls span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .ov-controls b{color:#ecd596;font-weight:600;background:#191310;border:1px solid #4a3a22;
+    border-radius:5px;padding:2px 7px;font-size:12px}
+  .ov-stats{display:flex;gap:22px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
+  .ov-stats div{font-size:12px;color:#8f7c58;letter-spacing:1px}
+  .ov-stats b{display:block;font-size:26px;color:#f0d79a;font-family:Georgia,serif;margin-top:2px}
+  .btn{position:relative;cursor:pointer;padding:13px 38px;border-radius:8px;font-size:15px;
+    letter-spacing:2.5px;text-transform:uppercase;color:#f7ead0;font-weight:600;
+    background:linear-gradient(180deg,#5a3a1c,#2c1a0c);
+    border:1px solid #a0803e;
+    box-shadow:0 0 0 2px #0b0806,inset 0 1px 0 rgba(255,220,150,.35),0 8px 22px rgba(0,0,0,.7);
+    transition:transform .12s,box-shadow .2s,background .2s}
+  .btn:hover{background:linear-gradient(180deg,#7a5026,#3c230f);
+    box-shadow:0 0 0 2px #0b0806,inset 0 1px 0 rgba(255,220,150,.5),0 0 26px rgba(210,160,70,.4),0 8px 22px rgba(0,0,0,.7)}
+  .btn:active{transform:translateY(1px) scale(.99)}
+  .ov-tip{margin-top:18px;font-size:11px;color:#6e5f45;letter-spacing:.6px}
+
+  /* ================= RESPONSIVE ================= */
+  @media (max-width:1180px){
+    #mm{width:150px;height:110px}
+    .map-meta{gap:0}
+  }
+  @media (max-width:920px){
+    :root{--orb:98px}
+    #hud{height:166px;gap:12px}
+    .slot{width:50px;height:50px}
+    .slot svg{width:28px;height:28px}
+    .hint{display:none}
+    #mm{width:132px;height:97px}
+    .depth-label{font-size:8px;letter-spacing:1px}
+    .boss-eta{font-size:8px;letter-spacing:.8px}
+  }
+  @media (max-width:680px){
+    :root{--orb:76px}
+    #hud{height:146px;gap:8px;padding:6px}
+    .slot{width:42px;height:42px}
+    .slot svg{width:24px;height:24px}
+    .slot .key{font-size:8px;padding:0 3px}
+    .orb-caption{display:none}
+    .potbtn{padding:2px 8px 2px 4px;gap:4px}
+    .potbtn .flask{width:14px;height:17px}
+    .map-block{display:none}
+    .mini-meta{display:block}
+    #objective{font-size:11px;padding:6px 10px}
+    .stats{font-size:10px}
+    .xp-row{max-width:220px}
+    .xp-text{display:none}
+    .ov-controls{font-size:11px;gap:6px 12px}
+    #cineTop.on,#cineBot.on{height:36px}
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="objective">Осталось врагов: <b>0</b></div>
+
+    <div id="bossbar">
+      <div class="boss-top"><span class="boss-title">Финальный босс</span><span class="boss-name">Диабло</span></div>
+      <div class="boss-hpbar"><div id="bossFill"></div></div>
+    </div>
+
+    <div id="cineTop"></div>
+    <div id="cineBot"></div>
+    <div id="cineText"><b id="cineTitle"></b><span id="cineSub"></span></div>
+
+    <div id="dmgFlash"></div>
+    <div id="toast"></div>
+
+    <div id="overlay"></div>
+  </div>
+
+  <div id="hud">
+    <div class="map-block">
+      <canvas id="mm"></canvas>
+      <div class="map-meta">
+        <div class="depth-label">Подземелье <b id="depthNum">1</b> / 3</div>
+        <div class="boss-eta" id="bossEta">До босса: 2</div>
+      </div>
+    </div>
+
+    <!-- LIFE -->
+    <div class="orb-block">
+      <div class="orb" id="orbHp">
+        <div class="liquid" id="hpLiquid">
+          <svg class="liq-wave" viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 10 Q12.5 2 25 10 T50 10 T75 10 T100 10 T125 10 T150 10 T175 10 T200 10 V20 H0Z" fill="rgba(255,255,255,.24)"/>
+          </svg>
+        </div>
+        <div class="orb-gloss"></div>
+        <div class="orb-num"><b id="hpNum">120</b><i id="hpMax">/120</i></div>
+      </div>
+      <div class="orb-caption">Жизнь</div>
+      <button class="potbtn" id="potHp" type="button" title="Флакон жизни (клавиша 1)">
+        <svg class="flask" viewBox="0 0 28 34" aria-hidden="true">
+          <path d="M9 7h10v7c5.6 2 8 6 8 11a13 13 0 0 1-26 0c0-5 2.4-9 8-11z" fill="#1a1210" stroke="#8a7038" stroke-width="1.6"/>
+          <path d="M5.6 21.5a8.4 8.4 0 0 0 16.8 0z" fill="#d31f36"/>
+          <rect x="10" y="2" width="8" height="6" rx="1.6" fill="#6b5228"/>
+        </svg>
+        <span class="kbd">1</span>
+        <b id="hpPot">3</b>
+      </button>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center-panel">
+      <div class="slots">
+        <div class="slot" id="slotSword" title="Удар мечом (ЛКМ / Пробел)">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M26 4l2 2-14 14-4 1 1-4z" fill="#d6dfec" stroke="#5c6675" stroke-width="1"/>
+            <path d="M26.5 4.5l1 1-13 13-2 .5.5-2z" fill="#fff" opacity=".55"/>
+            <path d="M9 21l-4 4 2 2 4-4" stroke="#c8a24a" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="5" cy="27" r="2" fill="#c8a24a"/>
+          </svg>
+          <span class="key">ЛКМ</span>
+          <div class="cd" id="cdSword"></div>
+        </div>
+        <div class="slot" id="slotFire" title="Огненный шар (ПКМ / E)">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 2c5.5 6.5 9 9.5 9 15.5A9 9 0 0 1 7 17.5c0-4 2-6.5 4.5-9.5.2 3 1 4.4 2 4.6C13.5 8.5 14 5 16 2z" fill="#ff7a1e" stroke="#a53a06" stroke-width="1"/>
+            <path d="M16 13c3.2 3.4 5.2 5.4 5.2 9a5.2 5.2 0 0 1-10.4 0c0-3 2-5 5.2-9z" fill="#ffd45a"/>
+            <circle cx="16" cy="23" r="2.4" fill="#fff6d0"/>
+          </svg>
+          <span class="key">E</span>
+          <div class="cd" id="cdFire"></div>
+        </div>
+      </div>
+      <div class="xp-row">
+        <div class="lvl">УР. <b id="lvlNum">1</b></div>
+        <div class="xpbar"><div id="xpFill"></div></div>
+        <div class="xp-text" id="xpText">0 / 50</div>
+      </div>
+      <div class="stats" id="statsLine">Убито: <b>0</b> · Золото: <b>0</b></div>
+      <div class="mini-meta" id="miniMeta">УР. 1/3 · до босса 2</div>
+      <div class="hint">WASD — идти · ЛКМ/Пробел — меч · ПКМ/E — огонь · 1/2 — зелья</div>
+    </div>
+
+    <!-- MANA -->
+    <div class="orb-block">
+      <div class="orb" id="orbMp">
+        <div class="liquid" id="mpLiquid">
+          <svg class="liq-wave" viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 10 Q12.5 3 25 10 T50 10 T75 10 T100 10 T125 10 T150 10 T175 10 T200 10 V20 H0Z" fill="rgba(255,255,255,.22)"/>
+          </svg>
+        </div>
+        <div class="orb-gloss"></div>
+        <div class="orb-num"><b id="mpNum">100</b><i id="mpMax">/100</i></div>
+      </div>
+      <div class="orb-caption">Мана</div>
+      <button class="potbtn" id="potMp" type="button" title="Флакон маны (клавиша 2)">
+        <svg class="flask" viewBox="0 0 28 34" aria-hidden="true">
+          <path d="M9 7h10v7c5.6 2 8 6 8 11a13 13 0 0 1-26 0c0-5 2.4-9 8-11z" fill="#101723" stroke="#6d7fa8" stroke-width="1.6"/>
+          <path d="M5.6 21.5a8.4 8.4 0 0 0 16.8 0z" fill="#2f7bff"/>
+          <rect x="10" y="2" width="8" height="6" rx="1.6" fill="#4a5b7a"/>
+        </svg>
+        <span class="kbd">2</span>
+        <b id="mpPot">2</b>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const TAU = Math.PI * 2;
+const TILE = 64;
+const MAX_DEPTH = 3;
+const T_FLOOR = 0, T_WALL = 1, T_VOID = 2, T_BRIDGE = 3, T_PLATFORM = 4,
+      T_STAIRS = 5, T_TUNNEL = 6, T_GATE = 7, T_BOSS_GATE = 8;
+const rand = (a, b) => a + Math.random() * (b - a);
+const ri = n => Math.floor(Math.random() * n);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const dist2 = (ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay; return dx * dx + dy * dy; };
+function angleDiff(a, b) { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); const t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+/* ============================================================
+   DOM
+   ============================================================ */
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+const mm = document.getElementById('mm');
+const mmx = mm.getContext('2d');
+const overlay = document.getElementById('overlay');
+const toastEl = document.getElementById('toast');
+const objectiveEl = document.getElementById('objective');
+const dmgFlashEl = document.getElementById('dmgFlash');
+
+const E = {
+  hpLiquid: document.getElementById('hpLiquid'),
+  mpLiquid: document.getElementById('mpLiquid'),
+  hpNum: document.getElementById('hpNum'),
+  hpMax: document.getElementById('hpMax'),
+  mpNum: document.getElementById('mpNum'),
+  mpMax: document.getElementById('mpMax'),
+  hpPot: document.getElementById('hpPot'),
+  mpPot: document.getElementById('mpPot'),
+  potHp: document.getElementById('potHp'),
+  potMp: document.getElementById('potMp'),
+  orbHp: document.getElementById('orbHp'),
+  orbMp: document.getElementById('orbMp'),
+  cdSword: document.getElementById('cdSword'),
+  cdFire: document.getElementById('cdFire'),
+  slotSword: document.getElementById('slotSword'),
+  slotFire: document.getElementById('slotFire'),
+  xpFill: document.getElementById('xpFill'),
+  xpText: document.getElementById('xpText'),
+  lvlNum: document.getElementById('lvlNum'),
+  stats: document.getElementById('statsLine'),
+  bossbar: document.getElementById('bossbar'),
+  bossFill: document.getElementById('bossFill'),
+  depthNum: document.getElementById('depthNum'),
+  bossEta: document.getElementById('bossEta'),
+  miniMeta: document.getElementById('miniMeta'),
+};
+
+const view = { w: 800, h: 600, dpr: 1 };
+function resize() {
+  const r = stage.getBoundingClientRect();
+  view.w = Math.max(320, Math.round(r.width));
+  view.h = Math.max(200, Math.round(r.height));
+  view.dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(view.w * view.dpr);
+  canvas.height = Math.round(view.h * view.dpr);
+}
+resize();
+new ResizeObserver(resize).observe(stage);
+
+const MM_W = 180, MM_H = 132;
+mm.width = MM_W * 2;
+mm.height = MM_H * 2;
+
+/* ============================================================
+   SVG TEXTURES
+   ============================================================ */
+const SVG = {};
+
+SVG.floor1 = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#221d17"/>
+<rect x="1" y="1" width="30" height="30" rx="2" fill="#2c261e"/>
+<rect x="33" y="1" width="30" height="30" rx="2" fill="#29231c"/>
+<rect x="1" y="33" width="30" height="30" rx="2" fill="#2a241d"/>
+<rect x="33" y="33" width="30" height="30" rx="2" fill="#2f2820"/>
+<path d="M2 3h27M35 3h26M2 35h27M35 35h26" stroke="#3b332a" stroke-width="1.2" opacity=".8"/>
+<path d="M14 9l3 6-2 5 4 4" fill="none" stroke="#1b1712" stroke-width="1.1"/>
+<path d="M45 37l-2 5 3 4-1 4" fill="none" stroke="#1a1611" stroke-width="1"/>
+<g fill="#382f26"><circle cx="8" cy="24" r="1"/><circle cx="23" cy="19" r=".8"/><circle cx="52" cy="11" r="1"/><circle cx="40" cy="27" r=".7"/><circle cx="11" cy="47" r=".9"/><circle cx="27" cy="53" r=".8"/><circle cx="50" cy="55" r="1"/></g>
+</svg>`;
+
+SVG.floor2 = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#1f2018"/>
+<rect x="1" y="1" width="30" height="30" rx="2" fill="#282a1f"/>
+<rect x="33" y="1" width="30" height="30" rx="2" fill="#24261c"/>
+<rect x="1" y="33" width="30" height="30" rx="2" fill="#26281d"/>
+<rect x="33" y="33" width="30" height="30" rx="2" fill="#2b2d21"/>
+<path d="M2 3h27M35 3h26M2 35h27M35 35h26" stroke="#383a2b" stroke-width="1.2" opacity=".75"/>
+<path d="M5 12q10 2 14 9-6 6-14 3z" fill="#33402a" opacity=".55"/>
+<path d="M38 44q8-3 16 2-2 8-12 6z" fill="#2f3b27" opacity=".5"/>
+<path d="M22 40l4 5-3 5 5 4" fill="none" stroke="#171a11" stroke-width="1.1"/>
+<g fill="#37432c" opacity=".8"><circle cx="18" cy="22" r="1.1"/><circle cx="46" cy="14" r=".9"/><circle cx="54" cy="36" r="1"/><circle cx="12" cy="52" r=".8"/><circle cx="34" cy="58" r=".9"/></g>
+</svg>`;
+
+SVG.floor3 = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#1d1a1e"/>
+<rect x="1" y="1" width="30" height="30" rx="2" fill="#262229"/>
+<rect x="33" y="1" width="30" height="30" rx="2" fill="#231f26"/>
+<rect x="1" y="33" width="30" height="30" rx="2" fill="#252128"/>
+<rect x="33" y="33" width="30" height="30" rx="2" fill="#2a252d"/>
+<path d="M2 3h27M35 3h26M2 35h27M35 35h26" stroke="#353039" stroke-width="1.2" opacity=".8"/>
+<path d="M18 4l6 10-4 6 8 8-3 8" fill="none" stroke="#131118" stroke-width="1.4"/>
+<path d="M40 34l3 7-2 7 5 6" fill="none" stroke="#141219" stroke-width="1.2"/>
+<path d="M8 44q9 2 12-4" fill="none" stroke="#3a3340" stroke-width="1" opacity=".7"/>
+<g fill="#38323d" opacity=".8"><circle cx="24" cy="26" r=".9"/><circle cx="50" cy="22" r="1"/><circle cx="14" cy="58" r=".8"/><circle cx="44" cy="56" r=".9"/></g>
+</svg>`;
+
+SVG.wall = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#3c3541"/><stop offset=".5" stop-color="#2a252e"/><stop offset="1" stop-color="#171419"/>
+</linearGradient></defs>
+<rect width="64" height="64" fill="#131016"/>
+<g fill="url(#wg)" stroke="#0c0a0e" stroke-width="2">
+<rect x="0" y="0" width="34" height="18" rx="2"/>
+<rect x="38" y="0" width="26" height="18" rx="2"/>
+<rect x="0" y="22" width="22" height="18" rx="2"/>
+<rect x="26" y="22" width="38" height="18" rx="2"/>
+<rect x="0" y="44" width="34" height="18" rx="2"/>
+<rect x="38" y="44" width="26" height="18" rx="2"/>
+</g>
+<path d="M4 4h24M42 4h16M4 26h14M30 26h28M4 48h24M42 48h16" stroke="#4f4656" stroke-width="1.3" opacity=".65"/>
+<rect x="0" y="0" width="64" height="3" fill="#595062" opacity=".55"/>
+<rect x="0" y="61" width="64" height="3" fill="#050406" opacity=".85"/>
+<path d="M47 7l-4 8 3 5" fill="none" stroke="#0f0d12" stroke-width="1"/>
+</svg>`;
+
+SVG.bones = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="30" viewBox="0 0 48 30">
+<g stroke="#b7ae95" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85">
+<path d="M5 21q6-9 14-4"/><path d="M26 24q8-7 16-1"/>
+</g>
+<circle cx="34" cy="12" r="6" fill="#c9c2ad"/>
+<circle cx="32" cy="11" r="1.4" fill="#332d22"/><circle cx="36.4" cy="11" r="1.4" fill="#332d22"/>
+<path d="M31 15h6" stroke="#8e866f" stroke-width="1.5"/>
+<rect x="9" y="24" width="10" height="3" rx="1.5" fill="#a9a28d"/>
+</svg>`;
+
+SVG.torch = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="46" viewBox="0 0 26 46">
+<path d="M11 20h4v20h-4z" fill="#3a2c1c"/>
+<path d="M8 40h10l2 4H6z" fill="#241a10"/>
+<path d="M5 19h16l-3 4H8z" fill="#2c2114"/>
+<path d="M13 2c5 5 6 9 3 13-2 3-6 3-7 0-1-3 1-5 2-7 0-2 0-4 2-6z" fill="#ff8a1e"/>
+<path d="M13 8c3 3.6 3 5.6 1 8.4-1.5 2-4 1-4-1 0-3 2-4 3-7.4z" fill="#ffd35a"/>
+<circle cx="13" cy="13" r="1.4" fill="#fff6cf"/>
+</svg>`;
+
+SVG.pit = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#07050b"/>
+<rect x="3" y="3" width="58" height="58" rx="4" fill="#0a0712"/>
+<path d="M6 6c10 6 20-2 30 2s16 0 22-4" fill="none" stroke="#1d1420" stroke-width="2"/>
+<path d="M8 58l8-10M52 52l-6-8M30 60l4-9" stroke="#1a1120" stroke-width="1.4" opacity=".8"/>
+<radialGradient id="pg" cx=".5" cy=".8" r=".6">
+<stop offset="0" stop-color="#3a0c06" stop-opacity=".55"/><stop offset="1" stop-color="#3a0c06" stop-opacity="0"/>
+</radialGradient>
+<rect width="64" height="64" fill="url(#pg)"/>
+<circle cx="18" cy="44" r="1.8" fill="#7a2a0c" opacity=".55"/>
+<circle cx="45" cy="52" r="1.4" fill="#9a3a10" opacity=".45"/>
+<circle cx="36" cy="30" r="1" fill="#6a220a" opacity=".4"/>
+</svg>`;
+
+SVG.bridge = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#0a0710"/>
+<rect x="5" y="0" width="54" height="64" fill="#3a2c1c"/>
+<rect x="5" y="0" width="54" height="64" fill="none" stroke="#1d140c" stroke-width="2"/>
+<path d="M5 8h54M5 24h54M5 40h54M5 56h54" stroke="#241a10" stroke-width="2"/>
+<path d="M12 0v64M24 0v64M36 0v64M48 0v64" stroke="#2c2013" stroke-width="1" opacity=".7"/>
+<rect x="0" y="0" width="6" height="64" fill="#20160e"/>
+<rect x="58" y="0" width="6" height="64" fill="#20160e"/>
+<path d="M3 0v64M61 0v64" stroke="#6a4a26" stroke-width="1.5"/>
+<path d="M6 6h52M6 58h52" stroke="#5a4226" stroke-width="2" opacity=".45"/>
+<path d="M5 0v64" stroke="#0a0710" stroke-width="1"/>
+</svg>`;
+
+SVG.platform = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#2a231b"/>
+<rect x="0" y="0" width="64" height="64" fill="#40372a"/>
+<rect x="1" y="1" width="62" height="62" rx="2" fill="#4b3f2f"/>
+<path d="M1 2h62" stroke="#7a6748" stroke-width="2.4"/>
+<path d="M0 1v62M63 1v62" stroke="#3a3023" stroke-width="1.5" opacity=".7"/>
+<path d="M2 61h60" stroke="#18130d" stroke-width="3"/>
+<path d="M9 12l5 7-3 6M45 12l-4 7 3 5M28 44l5 6-3 5" fill="none" stroke="#382e22" stroke-width="1.2"/>
+<g fill="#5c4e38"><circle cx="17" cy="47" r="1.1"/><circle cx="51" cy="29" r="1"/><circle cx="37" cy="18" r=".9"/><circle cx="12" cy="30" r=".8"/><circle cx="55" cy="54" r="1"/></g>
+</svg>`;
+
+SVG.stairs = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#221c14"/>
+<rect y="0" width="64" height="14" fill="#4c4130"/>
+<rect y="14" width="64" height="13" fill="#453a2a"/>
+<rect y="27" width="64" height="13" fill="#3d3324"/>
+<rect y="40" width="64" height="12" fill="#352c1f"/>
+<rect y="52" width="64" height="12" fill="#2d251a"/>
+<path d="M0 14h64M0 27h64M0 40h64M0 52h64" stroke="#18120c" stroke-width="2.2"/>
+<path d="M0 1h64M0 15h64M0 28h64M0 41h64M0 53h64" stroke="#62523b" stroke-width="1" opacity=".75"/>
+<path d="M6 4l3 6M52 30l-4 7M22 44l4 5" stroke="#2a2116" stroke-width="1" opacity=".7"/>
+</svg>`;
+
+SVG.tunnel = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect width="64" height="64" fill="#171119"/>
+<rect x="0" y="0" width="64" height="64" fill="#241d1a"/>
+<path d="M0 0h64v9H0z" fill="#080609"/>
+<path d="M0 9q16 12 32 0t32 0v7H0z" fill="#0c090b" opacity=".9"/>
+<rect x="0" y="0" width="5" height="64" fill="#0b080a"/>
+<rect x="59" y="0" width="5" height="64" fill="#0b080a"/>
+<path d="M5 0v64M59 0v64" stroke="#3a2c22" stroke-width="1.5"/>
+<path d="M17 22l4 8-2 9M47 26l-4 10 3 7" fill="none" stroke="#2e241d" stroke-width="1.1"/>
+<circle cx="33" cy="44" r="2" fill="#3d2c1c" opacity=".55"/>
+<rect x="6" y="52" width="52" height="5" fill="#0e0b0c" opacity=".5"/>
+</svg>`;
+
+SVG.bars = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<rect x="0" y="0" width="64" height="7" fill="#3a2c1c"/>
+<rect x="0" y="57" width="64" height="7" fill="#241a10"/>
+<g stroke="#6a5a48" stroke-width="5">
+<path d="M9 0v64M21 0v64M33 0v64M45 0v64M57 0v64"/>
+</g>
+<g stroke="#211912" stroke-width="1.2">
+<path d="M11.5 0v64M23.5 0v64M35.5 0v64M47.5 0v64M59.5 0v64"/>
+</g>
+<path d="M0 17h64M0 47h64" stroke="#3a2c1c" stroke-width="3"/>
+<g fill="#a8863f"><circle cx="21" cy="32" r="2"/><circle cx="45" cy="32" r="2"/></g>
+</svg>`;
+
+SVG.hero = `<svg xmlns="http://www.w3.org/2000/svg" width="84" height="98" viewBox="9 0 84 98">
+<defs>
+<linearGradient id="st" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#dae2ee"/><stop offset=".45" stop-color="#9aa6b8"/><stop offset="1" stop-color="#4e5765"/>
+</linearGradient>
+<linearGradient id="cl" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#a8202f"/><stop offset="1" stop-color="#4e0a13"/>
+</linearGradient>
+</defs>
+<path d="M42 30C24 42 17 66 21 92l15 2c-5-24-1-48 14-60z" fill="url(#cl)" stroke="#3a0710" stroke-width="1.5"/>
+<path d="M30 40c-5 12-7 28-5 44" stroke="#7b1420" stroke-width="2" fill="none" opacity=".8"/>
+<g transform="rotate(-12 30 58)">
+<ellipse cx="30" cy="58" rx="11" ry="14" fill="#5a4a3c" stroke="#2b231c" stroke-width="2"/>
+<ellipse cx="30" cy="58" rx="6.5" ry="9" fill="none" stroke="#a8863f" stroke-width="1.6"/>
+<circle cx="30" cy="58" r="2.6" fill="#d8b45c"/>
+</g>
+<path d="M44 62h10v26H44z" fill="#3b4250"/>
+<path d="M55 62h9v26h-9z" fill="#2e343f"/>
+<path d="M42 84h13v7q0 3-3 3h-10z" fill="#1f232b"/>
+<path d="M54 84h12v7q0 3-3 3h-9z" fill="#181c22"/>
+<path d="M47 66v16M58 66v16" stroke="#272d36" stroke-width="1.4"/>
+<path d="M38 32q14-7 24 0l3 30q-16 7-29 0z" fill="url(#st)" stroke="#414a57" stroke-width="1.5"/>
+<path d="M40 36q11 5 21 0" stroke="#6c7688" stroke-width="1.4" fill="none" opacity=".8"/>
+<path d="M39 60q13 6 25 0" stroke="#3c4451" stroke-width="2" fill="none"/>
+<rect x="39" y="56" width="24" height="6" rx="2" fill="#3a2a17" stroke="#5c4524" stroke-width="1"/>
+<rect x="48" y="57" width="6" height="4" rx="1" fill="#c8a24a"/>
+<path d="M35 34q-8 2-7 12 8 4 12-2z" fill="#93a0b2" stroke="#414a57" stroke-width="1.5"/>
+<path d="M64 34q8 2 7 12-8 4-12-2z" fill="#a4b0c1" stroke="#414a57" stroke-width="1.5"/>
+<path d="M63 42q6 3 6 12l-6 3q-3-7-7-10z" fill="#8b97a9" stroke="#414a57" stroke-width="1.3"/>
+<circle cx="66" cy="57" r="4.5" fill="#5c6472"/>
+<rect x="47" y="26" width="8" height="8" fill="#5c6472"/>
+<path d="M51 8q17 0 17 17 0 15-17 15-15 0-15-15Q36 8 51 8z" fill="url(#st)" stroke="#39414d" stroke-width="1.8"/>
+<path d="M51 17h15q2 7 0 11H51z" fill="#10141a"/>
+<circle cx="58" cy="22" r="2.8" fill="#ffcf5a"/>
+<circle cx="58" cy="22" r="5.5" fill="#ffb01f" opacity=".22"/>
+<path d="M37 20q-3 8 0 16" stroke="#c8a24a" stroke-width="2.4" fill="none"/>
+<path d="M52 6q7-9 16-6-3 8-11 10z" fill="#b02a38" stroke="#6d111d" stroke-width="1"/>
+</svg>`;
+
+SVG.sword = `<svg xmlns="http://www.w3.org/2000/svg" width="104" height="24" viewBox="0 0 104 24">
+<defs><linearGradient id="bl" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#cfd8e6"/>
+<stop offset=".58" stop-color="#7e8a9c"/><stop offset="1" stop-color="#3f4753"/>
+</linearGradient></defs>
+<rect x="4" y="9" width="16" height="6" rx="3" fill="#4a2f1c" stroke="#241408" stroke-width="1"/>
+<circle cx="4" cy="12" r="4" fill="#c8a24a" stroke="#6b5220" stroke-width="1"/>
+<path d="M20 4h6v16h-6z" fill="#c8a24a" stroke="#6b5220" stroke-width="1"/>
+<path d="M26 8h66l10 4-10 4H26z" fill="url(#bl)" stroke="#2b323c" stroke-width="1"/>
+<path d="M28 12h72" stroke="#ffffff" stroke-width="1" opacity=".5"/>
+</svg>`;
+
+SVG.skeleton = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="84" viewBox="0 0 64 84">
+<defs><linearGradient id="bn" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#efe8d4"/><stop offset="1" stop-color="#a8a08a"/>
+</linearGradient></defs>
+<g stroke="url(#bn)" stroke-width="5" stroke-linecap="round" fill="none">
+<path d="M27 57l-3 18"/><path d="M37 57l3 18"/>
+</g>
+<path d="M20 77h9M38 77h9" stroke="#9a937e" stroke-width="4" stroke-linecap="round"/>
+<path d="M24 54q8 5 16 0" stroke="url(#bn)" stroke-width="5" fill="none" stroke-linecap="round"/>
+<path d="M32 22v32" stroke="#c6bfa8" stroke-width="4"/>
+<g stroke="#d5ceb9" stroke-width="3" stroke-linecap="round" fill="none">
+<path d="M22 30h20"/><path d="M21 36h22"/><path d="M23 42h18"/><path d="M25 48h14"/>
+</g>
+<path d="M42 34l10 8" stroke="#cfc8b3" stroke-width="4" stroke-linecap="round"/>
+<path d="M30 34l-8 12" stroke="#cfc8b3" stroke-width="4" stroke-linecap="round"/>
+<path d="M32 6q12 0 12 11 0 7-4 9v4H26v-4q-6-3-6-9Q20 6 32 6z" fill="url(#bn)" stroke="#8f8874" stroke-width="1.2"/>
+<ellipse cx="27" cy="17" rx="3.2" ry="3.6" fill="#241f18"/>
+<ellipse cx="37" cy="17" rx="3.2" ry="3.6" fill="#241f18"/>
+<circle cx="27" cy="17" r="1.2" fill="#ff7d3a"/><circle cx="37" cy="17" r="1.2" fill="#ff7d3a"/>
+<path d="M29 25h6M30 27v3M34 27v3" stroke="#8f8874" stroke-width="1.4"/>
+<path d="M32 8v7" stroke="#b6af99" stroke-width="1"/>
+<path d="M51 42l12-6 4 9-13 5z" fill="#7a6a52" stroke="#3d342a" stroke-width="1.2"/>
+<path d="M50 44l3 3" stroke="#2c241b" stroke-width="3"/>
+</svg>`;
+
+SVG.imp = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="66" viewBox="0 0 60 66">
+<defs><linearGradient id="imp" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#c04a3a"/><stop offset="1" stop-color="#6d1c19"/>
+</linearGradient></defs>
+<path d="M24 46q-14 4-16 14 8-2 10-6" fill="none" stroke="#7a221c" stroke-width="3" stroke-linecap="round"/>
+<path d="M26 46l-4 14M36 46l4 14" stroke="#7a221c" stroke-width="5" stroke-linecap="round"/>
+<path d="M18 60h8M38 60h8" stroke="#4a1210" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="31" cy="36" rx="14" ry="15" fill="url(#imp)" stroke="#4a1210" stroke-width="1.5"/>
+<path d="M22 34q9 6 18 0" stroke="#8f2b22" stroke-width="2" fill="none"/>
+<path d="M19 30l-8 10" stroke="#8f2b22" stroke-width="4" stroke-linecap="round"/>
+<path d="M43 30l8 10" stroke="#8f2b22" stroke-width="4" stroke-linecap="round"/>
+<path d="M9 41l-3 3M11 43l-2 4M45 41l3 3M43 43l2 4" stroke="#e6d3b0" stroke-width="2" stroke-linecap="round"/>
+<circle cx="31" cy="18" r="13" fill="url(#imp)" stroke="#4a1210" stroke-width="1.5"/>
+<path d="M21 9q-3-7 3-8 0 4 4 5z" fill="#2a211c"/>
+<path d="M41 9q3-7-3-8 0 4-4 5z" fill="#2a211c"/>
+<ellipse cx="26" cy="17" rx="3" ry="3.4" fill="#ffe07a"/>
+<ellipse cx="36" cy="17" rx="3" ry="3.4" fill="#ffe07a"/>
+<circle cx="26" cy="17" r="1.2" fill="#331000"/><circle cx="36" cy="17" r="1.2" fill="#331000"/>
+<path d="M26 25q5 4 10 0" stroke="#43100d" stroke-width="2" fill="none"/>
+<path d="M29 24l1 3M33 24l-1 3" stroke="#fff" stroke-width="1.2"/>
+</svg>`;
+
+SVG.brute = `<svg xmlns="http://www.w3.org/2000/svg" width="92" height="106" viewBox="0 0 92 106">
+<defs><linearGradient id="br" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#8e5a44"/><stop offset="1" stop-color="#4a261c"/>
+</linearGradient></defs>
+<path d="M32 78h16v20H32z" fill="#4a261c"/>
+<path d="M52 78h16v20H52z" fill="#3d1e16"/>
+<path d="M28 96h22v8H28z" fill="#2a1510"/>
+<path d="M50 96h22v8H50z" fill="#24110d"/>
+<ellipse cx="50" cy="58" rx="24" ry="22" fill="#7d4936" stroke="#3f1e16" stroke-width="2"/>
+<path d="M36 52q14 8 28 0" stroke="#98604a" stroke-width="2" fill="none"/>
+<path d="M42 62q8 5 16 0" stroke="#54301f" stroke-width="2" fill="none"/>
+<path d="M26 34q24-12 48 0l-5 26q-19 8-38 0z" fill="url(#br)" stroke="#3f1e16" stroke-width="2"/>
+<path d="M20 38q-10 10-8 26l12 2q0-14 6-22z" fill="#6f3f2e" stroke="#3f1e16" stroke-width="1.6"/>
+<circle cx="20" cy="68" r="9" fill="#5d3325" stroke="#3f1e16" stroke-width="1.5"/>
+<g transform="rotate(-18 74 52)">
+<rect x="70" y="54" width="10" height="34" rx="4" fill="#4a3524" stroke="#2a1c11" stroke-width="1.5"/>
+<path d="M56 12h30l-4 20H60z" fill="#5a4128" stroke="#2a1c11" stroke-width="2"/>
+<path d="M63 6l4 8M71 4l2 9M79 6l3 8" stroke="#8c8c8c" stroke-width="3" stroke-linecap="round"/>
+</g>
+<path d="M72 38q10 10 8 26l-12 2q0-14-6-22z" fill="#7a4533" stroke="#3f1e16" stroke-width="1.6"/>
+<ellipse cx="51" cy="24" rx="17" ry="16" fill="url(#br)" stroke="#3f1e16" stroke-width="2"/>
+<path d="M38 12q-6-10 2-11 1 5 6 6z" fill="#2b211a"/>
+<path d="M64 12q6-10-2-11-1 5-6 6z" fill="#2b211a"/>
+<circle cx="45" cy="22" r="3.4" fill="#ffb43a"/><circle cx="58" cy="22" r="3.4" fill="#ffb43a"/>
+<circle cx="45" cy="22" r="1.4" fill="#3a1400"/><circle cx="58" cy="22" r="1.4" fill="#3a1400"/>
+<path d="M42 32q9 6 18 0" stroke="#39180f" stroke-width="2" fill="none"/>
+<path d="M44 32l2 5M50 34v5M56 32l-2 5" stroke="#e8dcc0" stroke-width="2.4" stroke-linecap="round"/>
+</svg>`;
+
+SVG.shaman = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="88" viewBox="0 0 64 88">
+<defs><linearGradient id="rb" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#3b3550"/><stop offset="1" stop-color="#171325"/>
+</linearGradient></defs>
+<path d="M32 26q13 4 16 20l6 36H10l6-36q3-16 16-20z" fill="url(#rb)" stroke="#0d0a16" stroke-width="2"/>
+<path d="M32 30v48" stroke="#4c4468" stroke-width="2" opacity=".7"/>
+<path d="M20 78q12 4 24 0" stroke="#5a5080" stroke-width="2" fill="none" opacity=".7"/>
+<path d="M12 82l-2 5 6-2 2 4 4-4 3 4 4-4 4 4 4-4 3 4 4-4 3 2-2-5z" fill="#0f0c18"/>
+<path d="M22 40q-6 8-4 16" stroke="#2a2440" stroke-width="6" stroke-linecap="round" fill="none"/>
+<path d="M43 40q8 6 10 14" stroke="#2a2440" stroke-width="6" stroke-linecap="round" fill="none"/>
+<path d="M53 22l4 58" stroke="#4a3a24" stroke-width="4" stroke-linecap="round"/>
+<circle cx="54" cy="18" r="9" fill="#59ffb6" opacity=".22"/>
+<circle cx="54" cy="18" r="5" fill="#7dffc4"/>
+<circle cx="54" cy="18" r="2.4" fill="#eafff5"/>
+<path d="M32 4q15 2 15 18 0 12-15 14-15-2-15-14Q17 6 32 4z" fill="url(#rb)" stroke="#0d0a16" stroke-width="2"/>
+<path d="M24 22q8-6 16 0 0 10-8 10t-8-10z" fill="#08060f"/>
+<circle cx="28" cy="25" r="2" fill="#6dffc0"/><circle cx="36" cy="25" r="2" fill="#6dffc0"/>
+<path d="M32 6v14" stroke="#4a4268" stroke-width="1.5" opacity=".8"/>
+</svg>`;
+
+SVG.boss = `<svg xmlns="http://www.w3.org/2000/svg" width="136" height="152" viewBox="0 0 136 152">
+<defs>
+<linearGradient id="bskin" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#a34a34"/><stop offset="1" stop-color="#48140f"/>
+</linearGradient>
+<linearGradient id="barm" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#7d8798"/><stop offset=".5" stop-color="#4a525f"/><stop offset="1" stop-color="#232830"/>
+</linearGradient>
+<linearGradient id="bfire" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff3b0"/><stop offset=".5" stop-color="#ff9a2e"/><stop offset="1" stop-color="#c22a08"/>
+</linearGradient>
+</defs>
+<path d="M50 56C34 74 26 112 30 148l26 2c-6-40 0-74 18-88z" fill="#2a0d14" stroke="#16060a" stroke-width="2"/>
+<path d="M46 108h20v34H46z" fill="#4e1b14"/>
+<path d="M72 108h20v34H72z" fill="#3f1410"/>
+<path d="M42 138h26v9H42z" fill="#24100b"/>
+<path d="M68 138h26v9H68z" fill="#1d0c08"/>
+<ellipse cx="68" cy="94" rx="29" ry="25" fill="#7b3a29" stroke="#38120c" stroke-width="2"/>
+<path d="M52 86q16 9 32 0" stroke="#9a5138" stroke-width="2.4" fill="none"/>
+<path d="M55 100q13 6 26 0" stroke="#4d1c12" stroke-width="2" fill="none"/>
+<path d="M42 52q26-14 52 0l-4 30q-22 9-44 0z" fill="url(#barm)" stroke="#20242b" stroke-width="2"/>
+<circle cx="68" cy="72" r="14" fill="#ff6a2a" opacity=".16"/>
+<path d="M68 60l9 12-9 12-9-12z" fill="#ff6a2a" opacity=".9"/>
+<path d="M36 52q-12 4-9 18 12 6 20-2z" fill="#5c6675" stroke="#232830" stroke-width="2"/>
+<path d="M38 48l-8-10 3 13z" fill="#9aa4b4" stroke="#4a525f"/>
+<path d="M100 52q12 4 9 18-12 6-20-2z" fill="#6a7484" stroke="#232830" stroke-width="2"/>
+<path d="M98 48l8-10-3 13z" fill="#aab4c4" stroke="#4a525f"/>
+<path d="M38 62q-12 8-12 24l12 3q0-13 8-20z" fill="#7b3a29" stroke="#38120c" stroke-width="1.6"/>
+<circle cx="26" cy="92" r="8" fill="#6a2f22" stroke="#38120c" stroke-width="1.5"/>
+<circle cx="24" cy="90" r="3.2" fill="url(#bfire)"/>
+<path d="M96 62q14 8 12 26l-13 2q1-14-7-21z" fill="#8c4432" stroke="#38120c" stroke-width="1.6"/>
+<circle cx="96" cy="92" r="8" fill="#6a2f22" stroke="#38120c" stroke-width="1.5"/>
+<g transform="rotate(12 104 74)">
+<rect x="100" y="26" width="9" height="92" rx="4" fill="#4a3320" stroke="#20130a" stroke-width="2"/>
+<path d="M104 6l26 14-6 22-20-10z" fill="#a5afc0" stroke="#2a3038" stroke-width="2"/>
+<path d="M104 6L80 20l6 22 18-10z" fill="#8b95a6" stroke="#2a3038" stroke-width="2"/>
+<path d="M104 8v30" stroke="#c8a24a" stroke-width="3"/>
+<path d="M118 15l4 6-10-4z" fill="#e8eef8" opacity=".7"/>
+</g>
+<ellipse cx="68" cy="34" rx="21" ry="19" fill="url(#bskin)" stroke="#38120c" stroke-width="2"/>
+<path d="M52 20Q40 4 28 10q10 4 14 14z" fill="#2b211c" stroke="#160f0b"/>
+<path d="M84 20q12-16 24-10-10 4-14 14z" fill="#2b211c" stroke="#160f0b"/>
+<circle cx="60" cy="31" r="6.5" fill="#ff6a1e" opacity=".22"/>
+<circle cx="78" cy="31" r="6.5" fill="#ff6a1e" opacity=".22"/>
+<ellipse cx="60" cy="32" rx="5" ry="4" fill="#ffb43a"/>
+<ellipse cx="78" cy="32" rx="5" ry="4" fill="#ffb43a"/>
+<ellipse cx="60" cy="32" rx="2" ry="3.4" fill="#3a0d00"/>
+<ellipse cx="78" cy="32" rx="2" ry="3.4" fill="#3a0d00"/>
+<path d="M48 24q10-5 20 0M68 24q10-5 20 0" stroke="#2c0f0a" stroke-width="2.4" fill="none"/>
+<path d="M56 44q12 8 24 0" stroke="#33110b" stroke-width="2" fill="none"/>
+<path d="M59 45l2 7M68 47v7M77 45l-2 7" stroke="#efe4c8" stroke-width="2.6" stroke-linecap="round"/>
+</svg>`;
+
+SVG.diablo = `<svg xmlns="http://www.w3.org/2000/svg" width="176" height="200" viewBox="0 0 176 200">
+<defs>
+<linearGradient id="dskin" x1="0" y1="0" x2=".8" y2="1">
+<stop offset="0" stop-color="#9a3020"/><stop offset=".5" stop-color="#5c1710"/><stop offset="1" stop-color="#2a0806"/>
+</linearGradient>
+<linearGradient id="dwing" x1="0" y1="0" x2=".5" y2="1">
+<stop offset="0" stop-color="#3a0d12"/><stop offset="1" stop-color="#12040a"/>
+</linearGradient>
+<linearGradient id="dfire" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#fff0a0"/><stop offset=".5" stop-color="#ff8a1e"/><stop offset="1" stop-color="#b81a05"/>
+</linearGradient>
+<linearGradient id="dsteel" x1="0" y1="0" x2=".7" y2="1">
+<stop offset="0" stop-color="#5a5f6a"/><stop offset="1" stop-color="#1b1c22"/>
+</linearGradient>
+</defs>
+<path d="M64 78C40 50 16 48 12 74c-4 24 14 46 34 52 8-20 8-34 18-48z" fill="url(#dwing)" stroke="#0a0205" stroke-width="2"/>
+<path d="M112 78c24-28 48-30 52-4 4 24-14 46-34 52-8-20-8-34-18-48z" fill="url(#dwing)" stroke="#0a0205" stroke-width="2"/>
+<g stroke="#5a1a1a" stroke-width="3" fill="none" opacity=".9">
+<path d="M60 82C42 64 26 62 18 76"/><path d="M60 92C44 84 30 84 22 94"/><path d="M62 104c-12 6-22 12-26 20"/>
+<path d="M116 82c18-18 34-20 42-6"/><path d="M116 92c16-8 30-8 38 2"/><path d="M114 104c12 6 22 12 26 20"/>
+</g>
+<path d="M98 154c26 2 44 12 58 30" stroke="#4a1410" stroke-width="10" fill="none" stroke-linecap="round"/>
+<path d="M98 154c26 2 44 12 58 30" stroke="#7a2a1a" stroke-width="4" fill="none" stroke-linecap="round" opacity=".6"/>
+<path d="M156 184l14 8-12 4z" fill="#5a1a10" stroke="#2a0806" stroke-width="1.5"/>
+<path d="M60 146h24v36H60z" fill="#4a1610"/>
+<path d="M92 146h24v36H92z" fill="#3a0f0a"/>
+<path d="M54 178h32v14H54z" fill="#2a0a08"/>
+<path d="M88 178h32v14H88z" fill="#220706"/>
+<path d="M62 150h18M94 150h18" stroke="#6a2216" stroke-width="2" opacity=".5"/>
+<path d="M50 78q38-18 76 0l-6 40q-32 14-64 0z" fill="url(#dskin)" stroke="#2a0806" stroke-width="2"/>
+<path d="M64 84q24-8 48 0" stroke="#3a0d0a" stroke-width="2" fill="none" opacity=".6"/>
+<path d="M62 128q26 10 52 0" stroke="#3a0d0a" stroke-width="2" fill="none" opacity=".6"/>
+<circle cx="88" cy="104" r="24" fill="#ff5a1e" opacity=".16"/>
+<path d="M88 88l12 18-12 20-12-20z" fill="url(#dfire)" opacity=".9"/>
+<path d="M74 94l-6 18M102 94l6 18" stroke="#ff7a2a" stroke-width="2" opacity=".5"/>
+<path d="M44 76q-16 6-14 24 16 8 28-2z" fill="url(#dsteel)" stroke="#14151a" stroke-width="2"/>
+<path d="M132 76q16 6 14 24-16 8-28-2z" fill="url(#dsteel)" stroke="#14151a" stroke-width="2"/>
+<path d="M34 68l-10-14 6 20z" fill="#7a808c" stroke="#2a2c33"/>
+<path d="M142 68l10-14-6 20z" fill="#7a808c" stroke="#2a2c33"/>
+<path d="M44 92q-16 10-18 30l14 6q2-18 12-26z" fill="#6a2216" stroke="#2a0806" stroke-width="2"/>
+<path d="M24 126q-6 10-4 18l10-2M30 124q-4 12-2 20l10-4M38 122q-2 12 0 18l10-6" stroke="#efe4c8" stroke-width="3" stroke-linecap="round"/>
+<path d="M132 92q18 8 20 30l-14 6q-2-18-14-26z" fill="#7a2a1a" stroke="#2a0806" stroke-width="2"/>
+<path d="M152 126q8 8 8 18l-10 0M146 124q6 10 6 20l-10-2M138 122q4 10 4 18l-10-4" stroke="#efe4c8" stroke-width="3" stroke-linecap="round"/>
+<rect x="76" y="62" width="24" height="18" fill="#4a1410"/>
+<path d="M88 16q30 0 30 30 0 20-30 24-30-4-30-24Q58 16 88 16z" fill="url(#dskin)" stroke="#2a0806" stroke-width="2"/>
+<path d="M62 30Q44 4 30 12q14 6 20 22z" fill="#2a1c16" stroke="#120a07" stroke-width="1.5"/>
+<path d="M114 30q18-26 32-18-14 6-20 22z" fill="#2a1c16" stroke="#120a07" stroke-width="1.5"/>
+<path d="M74 20Q66 0 56 4q8 6 10 18z" fill="#3a281e" stroke="#120a07"/>
+<path d="M102 20q8-20 18-16-8 6-10 18z" fill="#3a281e" stroke="#120a07"/>
+<path d="M88 14l-6-16 6 4 6-4z" fill="#4a3426" stroke="#120a07"/>
+<path d="M68 34q10-6 20 0M88 34q10-6 20 0" stroke="#2a0806" stroke-width="3" fill="none"/>
+<circle cx="78" cy="41" r="9" fill="#ff4a10" opacity=".22"/>
+<circle cx="98" cy="41" r="9" fill="#ff4a10" opacity=".22"/>
+<ellipse cx="78" cy="42" rx="6" ry="5" fill="#ffb43a"/>
+<ellipse cx="98" cy="42" rx="6" ry="5" fill="#ffb43a"/>
+<ellipse cx="78" cy="42" rx="2.4" ry="4" fill="#3a0500"/>
+<ellipse cx="98" cy="42" rx="2.4" ry="4" fill="#3a0500"/>
+<path d="M72 56q16 10 32 0" stroke="#1a0503" stroke-width="2.5" fill="none"/>
+<path d="M76 57l2 8M83 59v8M89 59v8M96 57l-2 8" stroke="#efe4c8" stroke-width="2.4" stroke-linecap="round"/>
+<path d="M84 66l-8 12 10-4z" fill="#3a241a"/>
+</svg>`;
+
+const assets = {};
+function svgUrl(s) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s); }
+function loadAssets() {
+  return Promise.all(Object.keys(SVG).map(name => new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => { assets[name] = { img, w: img.naturalWidth || 64, h: img.naturalHeight || 64 }; resolve(); };
+    img.onerror = () => { assets[name] = { img, w: 64, h: 64 }; resolve(); };
+    img.src = svgUrl(SVG[name]);
+  })));
+}
+
+/* ============================================================
+   AUDIO (tiny synth)
+   ============================================================ */
+let actx = null, noiseBuf = null;
+function initAudio() {
+  if (actx) { if (actx.state === 'suspended') actx.resume().catch(() => {}); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    const len = Math.floor(actx.sampleRate * 0.5);
+    noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { actx = null; }
+}
+function tone(freq, dur, type, vol, slideTo) {
+  if (!actx) return;
+  try {
+    const t = actx.currentTime;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol || 0.1, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(actx.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch (e) {}
+}
+function noise(dur, vol, freq, type) {
+  if (!actx || !noiseBuf) return;
+  try {
+    const t = actx.currentTime;
+    const s = actx.createBufferSource(); s.buffer = noiseBuf;
+    const f = actx.createBiquadFilter();
+    f.type = type || 'bandpass'; f.frequency.value = freq || 1000; f.Q.value = 1.1;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol || 0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(actx.destination);
+    s.start(t); s.stop(t + dur + 0.02);
+  } catch (e) {}
+}
+function sfx(kind) {
+  if (!actx) return;
+  switch (kind) {
+    case 'swing': noise(0.16, 0.16, 1100, 'highpass'); break;
+    case 'hit': noise(0.09, 0.26, 420); tone(150, 0.11, 'square', 0.06, 70); break;
+    case 'hurt': tone(230, 0.22, 'sawtooth', 0.1, 90); noise(0.2, 0.13, 300); break;
+    case 'fire': tone(540, 0.2, 'sine', 0.09, 190); noise(0.24, 0.1, 800); break;
+    case 'boom': noise(0.42, 0.3, 240, 'lowpass'); tone(95, 0.34, 'sine', 0.14, 40); break;
+    case 'potion': tone(680, 0.1, 'sine', 0.07, 1000); tone(920, 0.16, 'sine', 0.05, 1350); break;
+    case 'pickup': tone(1050, 0.07, 'triangle', 0.06, 1560); break;
+    case 'level': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.28, 'triangle', 0.07), i * 85)); break;
+    case 'portal': tone(180, 0.7, 'sine', 0.08, 720); break;
+    case 'death': tone(180, 0.5, 'sawtooth', 0.1, 55); noise(0.5, 0.2, 200, 'lowpass'); break;
+    case 'click': tone(700, 0.05, 'square', 0.04, 900); break;
+    case 'fail': tone(300, 0.12, 'square', 0.05, 180); break;
+    case 'roar': tone(140, 0.8, 'sawtooth', 0.11, 60); noise(0.65, 0.11, 190, 'lowpass'); break;
+    case 'warnMelee': tone(82, 0.42, 'sawtooth', 0.075, 52); noise(0.3, 0.08, 240, 'lowpass'); break;
+    case 'warnRange': tone(220, 0.7, 'sine', 0.07, 760); break;
+    case 'bossSlam': noise(0.45, 0.32, 210, 'lowpass'); tone(72, 0.4, 'square', 0.11, 38); break;
+    case 'bossVolley': tone(320, 0.42, 'sawtooth', 0.09, 140); noise(0.35, 0.15, 620); break;
+    case 'bossDown': [262, 392, 523, 784].forEach((f, i) => setTimeout(() => tone(f, 0.5, 'triangle', 0.08), i * 110)); noise(0.6, 0.2, 200, 'lowpass'); break;
+    case 'seal': noise(0.7, 0.38, 160, 'lowpass'); tone(60, 0.6, 'square', 0.12, 38); break;
+    case 'stone': noise(0.9, 0.22, 300, 'lowpass'); tone(90, 0.8, 'sawtooth', 0.06, 60); break;
+    case 'rainCast': tone(160, 0.7, 'sawtooth', 0.07, 320); noise(0.6, 0.08, 500); break;
+  }
+}
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+const state = { mode: 'title', depth: 1, kills: 0, gold: 0 };
+let hero = null;
+let map = null;
+let monsters = [];
+let projectiles = [];
+let particles = [];
+let numbers = [];
+let decals = [];
+let portal = null;
+let portalSpot = null;
+let clearT = 0;
+let levelHasMonsters = false;
+let cam = { x: 0, y: 0 };
+let shake = 0, flash = 0, time = 0;
+let lastMM = 0;
+let darkTarget = 0, darkness = 0;
+let camFocus = null;
+let arena = null;
+let meteors = [];
+let victoryT = -1;
+
+const mouse = { sx: 400, sy: 300, wx: 0, wy: 0, left: false, right: false, has: false };
+const keys = Object.create(null);
+
+const KINDS = {
+  skeleton: { hp: 42, speed: 64, dmg: 9, range: 40, cd: 1.15, r: 15, xp: 12, gold: [1, 4], size: 0.92 },
+  imp: { hp: 26, speed: 122, dmg: 6, range: 32, cd: 0.82, r: 12, xp: 9, gold: [1, 3], size: 0.82 },
+  brute: { hp: 135, speed: 52, dmg: 20, range: 48, cd: 1.7, r: 22, xp: 30, gold: [3, 8], size: 1.12 },
+  shaman: { hp: 52, speed: 66, dmg: 11, range: 330, cd: 2.3, r: 14, xp: 20, gold: [2, 6], size: 0.95 },
+  diablo: { hp: 620, speed: 74, dmg: 20, range: 195, cd: 1.15, r: 42, xp: 600, gold: [180, 300], size: 1.15 },
+};
+
+function makeHero() {
+  return {
+    x: 0, y: 0, r: 15, speed: 202,
+    hp: 120, maxHp: 120, mana: 100, maxMana: 100,
+    dmg: 26, level: 1, xp: 0, xpNext: 50,
+    aim: 0, walkT: 0, moving: false,
+    atkCd: 0, atkCdMax: 0.44, swingT: 0, swingDur: 0.26, swingAim: 0, swingDone: true,
+    castCd: 0, castCdMax: 0.5,
+    potCd: { hp: 0, mp: 0 }, potions: { hp: 3, mp: 2 },
+    kx: 0, ky: 0, hurtT: 0,
+  };
+}
+
+/* ============================================================
+   COLLISION / MAP
+   ============================================================ */
+function tileAt(tx, ty) {
+  if (!map) return -1;
+  if (tx < 0 || ty < 0 || tx >= map.W || ty >= map.H) return -1;
+  return map.grid[ty][tx];
+}
+function tileBlocksWalk(t) {
+  return t === T_WALL || t === T_VOID || t === T_GATE || t === T_BOSS_GATE || t === -1;
+}
+function isSolid(tx, ty) {
+  return tileBlocksWalk(tileAt(tx, ty));
+}
+function blocksProjectile(tx, ty) {
+  const t = tileAt(tx, ty);
+  return t === T_WALL || t === T_GATE || t === T_BOSS_GATE || t === -1;
+}
+function collidesWith(x, y, r, blocked) {
+  const x0 = Math.floor((x - r) / TILE), x1 = Math.floor((x + r) / TILE);
+  const y0 = Math.floor((y - r) / TILE), y1 = Math.floor((y + r) / TILE);
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) {
+      if (!blocked(tileAt(tx, ty))) continue;
+      const cx = clamp(x, tx * TILE, tx * TILE + TILE);
+      const cy = clamp(y, ty * TILE, ty * TILE + TILE);
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < r * r) return true;
+    }
+  }
+  return false;
+}
+function collides(x, y, r) {
+  return collidesWith(x, y, r, tileBlocksWalk);
+}
+function collidesForBoss(x, y, r) {
+  return collidesWith(x, y, r, t =>
+    t === T_WALL || t === T_VOID || t === T_GATE || t === T_BOSS_GATE ||
+    t === T_PLATFORM || t === T_STAIRS || t === -1);
+}
+function elevationAt(x, y) {
+  const t = tileAt(Math.floor(x / TILE), Math.floor(y / TILE));
+  if (t === T_PLATFORM) return 13;
+  if (t === T_STAIRS) return 7;
+  return 0;
+}
+function isElevatedTile(x, y) { return elevationAt(x, y) > 0; }
+function tryMove(e, dx, dy) {
+  const test = e.isBoss ? collidesForBoss : collides;
+  if (!test(e.x + dx, e.y, e.r)) e.x += dx;
+  if (!test(e.x, e.y + dy, e.r)) e.y += dy;
+}
+function blocksSight(tx, ty) {
+  const t = tileAt(tx, ty);
+  return t === T_WALL || t === T_GATE || t === T_BOSS_GATE || t === -1;
+}
+function hasLOS(ax, ay, bx, by) {
+  const d = Math.hypot(bx - ax, by - ay);
+  const steps = Math.ceil(d / 18);
+  for (let i = 1; i < steps; i++) {
+    const x = ax + (bx - ax) * i / steps;
+    const y = ay + (by - ay) * i / steps;
+    if (blocksSight(Math.floor(x / TILE), Math.floor(y / TILE))) return false;
+  }
+  return true;
+}
+function lineHitsVoid(ax, ay, bx, by) {
+  const d = Math.hypot(bx - ax, by - ay);
+  const steps = Math.ceil(d / 14);
+  for (let i = 1; i < steps; i++) {
+    const x = ax + (bx - ax) * i / steps;
+    const y = ay + (by - ay) * i / steps;
+    if (tileAt(Math.floor(x / TILE), Math.floor(y / TILE)) === T_VOID) return true;
+  }
+  return false;
+}
+
+function carveH(g, x1, x2, y) {
+  for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) if (g[y] && g[y][x] !== undefined) g[y][x] = 0;
+}
+function carveV(g, y1, y2, x) {
+  for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) if (g[y] && g[y][x] !== undefined) g[y][x] = 0;
+}
+function connectRooms(g, a, b) {
+  if (Math.random() < 0.5) {
+    carveH(g, a.cx, b.cx, a.cy);
+    carveV(g, a.cy, b.cy, b.cx);
+  } else {
+    carveV(g, a.cy, b.cy, a.cx);
+    carveH(g, a.cx, b.cx, b.cy);
+  }
+}
+
+function genMap(bossLevel) {
+  const W = 34, H = 25;
+  const grid = Array.from({ length: H }, () => new Array(W).fill(1));
+  const rooms = [];
+  let guard = 0;
+  const targetRooms = bossLevel ? 6 : 8;
+  const minW = bossLevel ? 7 : 5, addW = bossLevel ? 3 : 5;
+  const minH = bossLevel ? 6 : 4, addH = bossLevel ? 2 : 4;
+  while (rooms.length < targetRooms && guard++ < 900) {
+    const w = minW + ri(addW), h = minH + ri(addH);
+    const x = 2 + ri(W - w - 4), y = 2 + ri(H - h - 4);
+    const r = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
+    const bad = rooms.some(o =>
+      r.x < o.x + o.w + 2 && o.x < r.x + r.w + 2 &&
+      r.y < o.y + o.h + 2 && o.y < r.y + r.h + 2);
+    if (bad) continue;
+    rooms.push(r);
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) grid[yy][xx] = 0;
+  }
+  for (let i = 1; i < rooms.length; i++) connectRooms(grid, rooms[i - 1], rooms[i]);
+  for (let k = 0; k < 2; k++) {
+    const a = rooms[ri(rooms.length)], b = rooms[ri(rooms.length)];
+    if (a && b && a !== b) connectRooms(grid, a, b);
+  }
+
+  const floorCells = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 0) floorCells.push({ x, y });
+
+  // torches on wall tiles touching floor
+  const wallCand = [];
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      if (grid[y][x] !== 1) continue;
+      if (grid[y + 1][x] === 0 || grid[y - 1][x] === 0 || grid[y][x + 1] === 0 || grid[y][x - 1] === 0) {
+        wallCand.push({ x, y });
+      }
+    }
+  }
+  shuffle(wallCand);
+  const torches = wallCand.slice(0, 9).map(c => ({
+    x: (c.x + 0.5) * TILE,
+    y: (c.y + 0.6) * TILE,
+    phase: Math.random() * TAU,
+  }));
+
+  shuffle(floorCells);
+  const bones = floorCells.slice(0, 14).map(c => ({
+    x: (c.x + rand(0.3, 0.7)) * TILE,
+    y: (c.y + rand(0.35, 0.75)) * TILE,
+    s: rand(0.7, 1.05),
+    rot: rand(-0.5, 0.5),
+  }));
+
+  return { W, H, grid, rooms, torches, bones, floorCells };
+}
+
+/* ============================================================
+   FINAL ARENA (3-й уровень)
+   ============================================================ */
+function buildArena() {
+  const W = 32, H = 24;
+  const grid = Array.from({ length: H }, () => new Array(W).fill(T_WALL));
+  const fill = (x0, y0, w, h, t) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      if (grid[y] && grid[y][x] !== undefined) grid[y][x] = t;
+    }
+  };
+
+  fill(1, 5, 30, 15, T_FLOOR);          // арена
+  fill(12, 21, 8, 2, T_FLOOR);          // входная камера
+  fill(13, 1, 6, 3, T_FLOOR);           // логово Диабло
+
+  for (let x = 14; x <= 17; x++) grid[4][x] = T_BOSS_GATE;    // северные врата (закрыты)
+  for (let x = 14; x <= 17; x++) grid[20][x] = T_FLOOR;       // южные врата (открыты)
+
+  // пропасть и мост
+  fill(1, 12, 30, 3, T_VOID);
+  for (let y = 12; y <= 14; y++) grid[y][16] = T_BRIDGE;
+
+  // скала с тоннелем
+  fill(3, 8, 6, 9, T_WALL);
+  for (let y = 7; y <= 17; y++) grid[y][5] = T_TUNNEL;
+
+  // приподнятый помост со ступенями
+  fill(24, 15, 6, 5, T_PLATFORM);
+  for (let y = 15; y <= 18; y++) grid[y][23] = T_STAIRS;
+
+  // колонны-укрытия
+  fill(10, 7, 2, 2, T_WALL);
+  fill(19, 7, 2, 2, T_WALL);
+  fill(10, 17, 2, 2, T_WALL);
+  fill(19, 17, 2, 2, T_WALL);
+
+  const torches = [
+    { x: 2.4 * TILE, y: 6.5 * TILE, phase: rand(0, TAU) },
+    { x: 29.6 * TILE, y: 6.5 * TILE, phase: rand(0, TAU) },
+    { x: 2.4 * TILE, y: 18.6 * TILE, phase: rand(0, TAU) },
+    { x: 29.6 * TILE, y: 18.6 * TILE, phase: rand(0, TAU) },
+    { x: 13.6 * TILE, y: 6.5 * TILE, phase: rand(0, TAU) },
+    { x: 18.4 * TILE, y: 6.5 * TILE, phase: rand(0, TAU) },
+    { x: 13.6 * TILE, y: 18.6 * TILE, phase: rand(0, TAU) },
+    { x: 18.4 * TILE, y: 18.6 * TILE, phase: rand(0, TAU) },
+  ];
+
+  const floorCells = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = grid[y][x];
+    if (t !== T_WALL && t !== T_VOID && t !== T_GATE && t !== T_BOSS_GATE) floorCells.push({ x, y });
+  }
+  shuffle(floorCells);
+  const bones = floorCells.slice(0, 10).map(c => ({
+    x: (c.x + rand(0.3, 0.7)) * TILE,
+    y: (c.y + rand(0.35, 0.75)) * TILE,
+    s: rand(0.7, 1.05),
+    rot: rand(-0.5, 0.5),
+  }));
+
+  return {
+    W, H, grid, rooms: [], torches, bones, floorCells, isArena: true,
+    spawn: { x: 16 * TILE, y: 21.5 * TILE },
+    bossSpawn: { x: 16 * TILE, y: 2.5 * TILE },
+    bossAim: { x: 16 * TILE, y: 8.5 * TILE },
+    bossGateY: 4, bossGateX0: 14, bossGateX1: 17,
+    southGateY: 20, southGateX0: 14, southGateX1: 17,
+    triggerY: 19.4 * TILE,
+  };
+}
+
+/* ============================================================
+   LEVEL BUILD
+   ============================================================ */
+function buildLevel(depth) {
+  state.depth = depth;
+  const finalLevel = depth >= MAX_DEPTH;
+  monsters = []; projectiles = []; particles = []; numbers = []; decals = [];
+  meteors = []; portal = null; portalSpot = null; clearT = 0;
+  camFocus = null; victoryT = -1; darkness = 0; darkTarget = 0;
+
+  if (finalLevel) {
+    map = buildArena();
+    arena = { triggered: false, phase: 'idle', t: 0, boss: null, gateClosed: false, bossDown: false, victoryShown: false };
+    hero.x = map.spawn.x;
+    hero.y = map.spawn.y;
+    spawnArenaMinions();
+  } else {
+    arena = null;
+    let tries = 0;
+    do { map = genMap(false); } while (map.rooms.length < 2 && ++tries < 12);
+    const r0 = map.rooms[0];
+    hero.x = (r0.cx + 0.5) * TILE;
+    hero.y = (r0.cy + 0.5) * TILE;
+
+    let best = null, bestD = -1;
+    for (let i = 1; i < map.rooms.length; i++) {
+      const r = map.rooms[i];
+      const px = (r.cx + 0.5) * TILE, py = (r.cy + 0.5) * TILE;
+      const d = dist2(hero.x, hero.y, px, py);
+      if (d > bestD) { bestD = d; best = { x: px, y: py }; }
+    }
+    portalSpot = best || { x: hero.x, y: hero.y };
+    spawnMonsters();
+  }
+
+  hero.kx = hero.ky = 0;
+  levelHasMonsters = monsters.length > 0;
+  spawnStains();
+  cam.x = hero.x - view.w / 2;
+  cam.y = hero.y - view.h / 2;
+  clampCam();
+}
+
+function spawnArenaMinions() {
+  const pts = [[9.5, 9.5], [22.5, 9.3], [16.5, 17.4]];
+  for (const [tx, ty] of pts) {
+    monsters.push(makeMonster(Math.random() < 0.5 ? 'imp' : 'skeleton', tx * TILE, ty * TILE));
+  }
+}
+
+function spawnMonsters() {
+  const count = Math.min(16, 5 + Math.round(state.depth * 1.9));
+  const spots = [];
+  for (let i = 1; i < map.rooms.length; i++) {
+    const r = map.rooms[i];
+    for (let k = 0; k < 10; k++) {
+      const tx = r.x + 1 + ri(Math.max(1, r.w - 2));
+      const ty = r.y + 1 + ri(Math.max(1, r.h - 2));
+      spots.push({ x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE });
+    }
+  }
+  shuffle(spots);
+  const placed = [];
+  for (const s of spots) {
+    if (placed.length >= count) break;
+    if (dist2(s.x, s.y, hero.x, hero.y) < 320 * 320) continue;
+    if (placed.some(p => dist2(p.x, p.y, s.x, s.y) < 70 * 70)) continue;
+    placed.push(s);
+    monsters.push(makeMonster(pickKind(), s.x, s.y));
+  }
+}
+
+function pickKind() {
+  const L = state.depth;
+  const w = [
+    ['skeleton', 46],
+    ['imp', Math.max(14, 36 - L * 2)],
+    ['brute', L >= 2 ? 10 + L * 3 : 0],
+    ['shaman', L >= 2 ? 7 + L * 2 : 0],
+  ];
+  let total = 0;
+  for (const it of w) total += it[1];
+  let roll = Math.random() * total;
+  for (const it of w) { roll -= it[1]; if (roll <= 0) return it[0]; }
+  return 'skeleton';
+}
+
+function makeMonster(kind, x, y) {
+  const K = KINDS[kind];
+  const L = state.depth;
+  const hpScale = 1 + (L - 1) * 0.2;
+  const dmgScale = 1 + (L - 1) * 0.12;
+  const hp = Math.round(K.hp * hpScale);
+  const isDiablo = kind === 'diablo';
+  return {
+    kind, x, y, r: K.r, size: K.size,
+    hp, maxHp: hp,
+    dmg: Math.max(1, Math.round(K.dmg * dmgScale)),
+    speed: K.speed * (1 + (L - 1) * 0.03),
+    range: K.range,
+    atkCdBase: K.cd, atkCd: rand(0.2, 1.1),
+    xp: K.xp, gold: K.gold,
+    windup: 0, windupMax: kind === 'shaman' ? 0.5 : 0.32, attackType: 'melee',
+    aggro: false, hurtT: 0, dead: false, deadT: 0,
+    kx: 0, ky: 0, animT: rand(0, 10), facingLeft: false, moving: false, lungeT: 0,
+    isBoss: isDiablo,
+    isSuper: isDiablo,
+    bossPhase: isDiablo ? 'emerge' : 'idle',
+    phaseT: 0,
+    attackAim: 0, flashArc: 0, roared: false, nextAttack: 'melee',
+    rainCd: 6, phase: 1, summoned: false, emergeTarget: null,
+    meleeR: isDiablo ? 195 : 152, meleeHalf: isDiablo ? 1.05 : 1.0, meleeWind: isDiablo ? 1.05 : 0.95,
+  };
+}
+
+function spawnStains() {
+  const cells = map.floorCells;
+  for (let i = 0; i < 18; i++) {
+    const c = cells[ri(cells.length)];
+    if (!c) break;
+    const x = (c.x + rand(0.2, 0.8)) * TILE;
+    const y = (c.y + rand(0.2, 0.8)) * TILE;
+    const blobs = [];
+    const n = 2 + ri(3);
+    for (let k = 0; k < n; k++) blobs.push({ dx: rand(-14, 14), dy: rand(-9, 9), r: rand(4, 14) });
+    decals.push({ x, y, blobs, life: 9999, max: 9999, color: '#141013', alpha: 0.55 });
+  }
+}
+
+/* ============================================================
+   CLAMP CAMERA
+   ============================================================ */
+function clampCam() {
+  if (!map) return;
+  const w = map.W * TILE, h = map.H * TILE;
+  if (w <= view.w) cam.x = (w - view.w) / 2;
+  else cam.x = clamp(cam.x, 0, w - view.w);
+  if (h <= view.h) cam.y = (h - view.h) / 2;
+  else cam.y = clamp(cam.y, 0, h - view.h);
+}
+
+/* ============================================================
+   EFFECTS
+   ============================================================ */
+function addNumber(x, y, text, color) {
+  numbers.push({ x, y, text: String(text), color: color || '#ffe2a8', life: 0.9, max: 0.9, vy: -52 });
+  if (numbers.length > 40) numbers.shift();
+}
+function addParticle(p) {
+  if (particles.length > 480) particles.shift();
+  particles.push(p);
+}
+function burst(x, y, n, o) {
+  o = o || {};
+  for (let i = 0; i < n; i++) {
+    const a = o.angle === undefined ? rand(0, TAU) : o.angle + rand(-1, 1) * (o.spread || 1);
+    const sp = rand(o.min || 30, o.max || 160);
+    addParticle({
+      x, y,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      life: rand(o.lifeMin || 0.25, o.lifeMax || 0.7),
+      max: 0.8,
+      size: rand(o.sizeMin || 1.5, o.sizeMax || 3.6),
+      color: o.color || '#ffca6a',
+      g: o.g === undefined ? 220 : o.g,
+      glow: !!o.glow,
+      drag: o.drag === undefined ? 0.9 : o.drag,
+    });
+  }
+}
+function blood(x, y, angle, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = angle + rand(-0.9, 0.9);
+    const sp = rand(40, 230);
+    addParticle({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - rand(0, 60),
+      life: rand(0.25, 0.6), max: 0.6,
+      size: rand(1.6, 4.2), color: color || '#a41524', g: 420, drag: 0.86,
+    });
+  }
+}
+function addBloodDecal(x, y, scale) {
+  const blobs = [];
+  const n = 3 + ri(4);
+  for (let i = 0; i < n; i++) {
+    blobs.push({ dx: rand(-1, 1) * 20 * scale, dy: rand(-1, 1) * 11 * scale, r: rand(4, 12) * scale });
+  }
+  decals.push({ x, y, blobs, life: 24, max: 24, color: '#420a0f', alpha: 0.8 });
+  if (decals.length > 110) decals.splice(0, decals.length - 110);
+}
+
+/* ============================================================
+   COMBAT
+   ============================================================ */
+function tryAttack() {
+  if (!hero || state.mode !== 'playing') return;
+  if (hero.atkCd > 0 || hero.swingT > 0) return;
+  hero.atkCd = hero.atkCdMax;
+  hero.swingT = hero.swingDur;
+  hero.swingAim = hero.aim;
+  hero.swingDone = false;
+  sfx('swing');
+}
+function swordHit() {
+  const cx = hero.x, cy = hero.y - 30;
+  const reach = 86;
+  let hitAny = false;
+  for (const m of monsters) {
+    if (m.dead) continue;
+    const mx = m.x, my = m.y - 20 * m.size;
+    const d = Math.hypot(mx - cx, my - cy);
+    if (d > reach + m.r) continue;
+    const a = Math.atan2(my - cy, mx - cx);
+    if (Math.abs(angleDiff(a, hero.swingAim)) < 1.06) {
+      damageMonster(m, hero.dmg * rand(0.85, 1.2), a, 250);
+      hitAny = true;
+    }
+  }
+  if (hitAny) shake = Math.max(shake, 5);
+}
+
+function damageMonster(m, dmg, ang, kb) {
+  if (m.dead) return;
+  m.hp -= dmg;
+  m.hurtT = 0.13;
+  m.aggro = true;
+  const kbm = m.isBoss ? 0.12 : 1;
+  m.kx += Math.cos(ang) * kb * kbm;
+  m.ky += Math.sin(ang) * kb * kbm;
+  addNumber(m.x, m.y - 74 * m.size, Math.round(dmg), '#ffe2a8');
+  blood(m.x, m.y - 30, ang, 7);
+  sfx('hit');
+  if (m.hp <= 0) killMonster(m, ang);
+  else if (m.kind === 'brute') shake = Math.max(shake, 3);
+}
+
+function killMonster(m, ang) {
+  if (m.dead) return;
+  m.dead = true;
+  m.deadT = 0;
+  m.hp = 0;
+  state.kills++;
+  const L = state.depth;
+  hero.xp += Math.round(m.xp * (1 + (L - 1) * 0.1));
+  state.gold += m.gold[0] + ri(m.gold[1] - m.gold[0] + 1);
+  blood(m.x, m.y - 30, ang || 0, 22);
+  addBloodDecal(m.x, m.y, m.size);
+  burst(m.x, m.y - 30, 10, { color: '#c9c2ad', glow: false, g: 260, min: 20, max: 110, sizeMin: 1, sizeMax: 2.6 });
+  sfx('death');
+  if (m.isBoss) {
+    hero.potions.hp = Math.min(9, hero.potions.hp + 1);
+    hero.potions.mp = Math.min(9, hero.potions.mp + 1);
+    hero.hp = Math.min(hero.maxHp, hero.hp + Math.round(hero.maxHp * 0.25));
+    burst(m.x, m.y - 60, 46, { color: '#ffcf6a', glow: true, min: 40, max: 280, lifeMin: 0.4, lifeMax: 1.2, sizeMin: 1.5, sizeMax: 4, g: -80 });
+    shake = Math.max(shake, 14);
+    sfx('bossDown');
+  } else {
+    const roll = Math.random();
+    if (roll < 0.22) {
+      hero.potions.hp = Math.min(9, hero.potions.hp + 1);
+      toast('Найден флакон жизни', '#ff9aa4');
+      sfx('pickup');
+    } else if (roll < 0.4) {
+      hero.potions.mp = Math.min(9, hero.potions.mp + 1);
+      toast('Найден флакон маны', '#8fc4ff');
+      sfx('pickup');
+    }
+  }
+  checkLevelUp();
+  if (m.isBoss) toast(m.isSuper ? 'Диабло повержен!' : 'Мини-босс повержен!', '#ffd27a');
+}
+
+function heroFireballExplode(x, y, radius, dmg, from) {
+  for (const m of monsters) {
+    if (m.dead) continue;
+    const d = Math.hypot(m.x - x, (m.y - 20 * m.size) - y);
+    if (d < radius + m.r) {
+      const f = 1 - (d / (radius + m.r)) * 0.55;
+      damageMonster(m, dmg * f, Math.atan2((m.y - 20 * m.size) - y, m.x - x), 200);
+    }
+  }
+  burst(x, y, 30, { color: '#ff9b2e', glow: true, min: 40, max: 300, lifeMin: 0.2, lifeMax: 0.55, sizeMin: 2, sizeMax: 5, g: 60 });
+  burst(x, y, 14, { color: '#ffe9b0', glow: true, min: 20, max: 150, lifeMin: 0.15, lifeMax: 0.4, sizeMin: 1.5, sizeMax: 3, g: 40 });
+  shake = Math.max(shake, 7);
+  sfx('boom');
+}
+
+function hurtHero(dmg, ang) {
+  if (state.mode !== 'playing' || !hero) return;
+  if (map && map.isArena && arena && arena.phase === 'victory') return;
+  hero.hp -= dmg;
+  hero.hurtT = 0.25;
+  flash = Math.min(1, flash + 0.55);
+  shake = Math.max(shake, 7);
+  hero.kx += Math.cos(ang) * 110;
+  hero.ky += Math.sin(ang) * 110;
+  addNumber(hero.x, hero.y - 94, '-' + Math.round(dmg), '#ff6b6b');
+  blood(hero.x, hero.y - 40, ang, 6, '#8e1620');
+  sfx('hurt');
+  if (hero.hp <= 0) hero.hp = 0;
+}
+
+function tryCast() {
+  if (!hero || state.mode !== 'playing') return;
+  if (hero.castCd > 0) return;
+  const cost = 18;
+  if (hero.mana < cost) { toast('Недостаточно маны', '#8fa8c8'); sfx('fail'); return; }
+  hero.mana -= cost;
+  hero.castCd = hero.castCdMax;
+  const a = hero.aim;
+  projectiles.push({
+    side: 'hero', type: 'fire',
+    x: hero.x + Math.cos(a) * 20, y: hero.y - 30 + Math.sin(a) * 20,
+    vx: Math.cos(a) * 560, vy: Math.sin(a) * 560,
+    r: 9, life: 1.4, dmg: 55,
+    trail: 0,
+  });
+  burst(hero.x + Math.cos(a) * 20, hero.y - 30 + Math.sin(a) * 20, 6, { angle: a, spread: 0.5, color: '#ffb347', glow: true, min: 20, max: 90, lifeMin: 0.1, lifeMax: 0.3, sizeMin: 1.5, sizeMax: 3, g: 0 });
+  sfx('fire');
+}
+
+function usePotion(kind) {
+  if (!hero || state.mode !== 'playing') return;
+  if (hero.potions[kind] <= 0) {
+    toast(kind === 'hp' ? 'Флаконов жизни нет' : 'Флаконов маны нет', '#e07070');
+    sfx('fail');
+    return;
+  }
+  if (hero.potCd[kind] > 0) return;
+  if (kind === 'hp' && hero.hp >= hero.maxHp) { toast('Жизнь полна', '#a8c890'); return; }
+  if (kind === 'mp' && hero.mana >= hero.maxMana) { toast('Мана полна', '#9ab8e0'); return; }
+  hero.potions[kind]--;
+  hero.potCd[kind] = 0.9;
+  if (kind === 'hp') {
+    const heal = Math.round(hero.maxHp * 0.5);
+    hero.hp = Math.min(hero.maxHp, hero.hp + heal);
+    addNumber(hero.x, hero.y - 100, '+' + heal, '#8affa0');
+    burst(hero.x, hero.y - 40, 14, { color: '#ff5c6e', glow: true, min: 15, max: 90, lifeMin: 0.3, lifeMax: 0.8, sizeMin: 1.5, sizeMax: 3.4, g: -60 });
+    toast('Флакон жизни: +' + heal, '#ff9aa4');
+  } else {
+    const m = Math.round(hero.maxMana * 0.6);
+    hero.mana = Math.min(hero.maxMana, hero.mana + m);
+    addNumber(hero.x, hero.y - 100, '+' + m, '#8fc4ff');
+    burst(hero.x, hero.y - 40, 14, { color: '#5aa8ff', glow: true, min: 15, max: 90, lifeMin: 0.3, lifeMax: 0.8, sizeMin: 1.5, sizeMax: 3.4, g: -60 });
+    toast('Флакон маны: +' + m, '#8fc4ff');
+  }
+  sfx('potion');
+}
+
+function checkLevelUp() {
+  while (hero.xp >= hero.xpNext) {
+    hero.xp -= hero.xpNext;
+    hero.level++;
+    hero.xpNext = Math.round(hero.xpNext * 1.4 + 25);
+    hero.maxHp += 16;
+    hero.maxMana += 6;
+    hero.dmg += 3;
+    hero.hp = hero.maxHp;
+    hero.mana = hero.maxMana;
+    toast('Новый уровень: ' + hero.level + '!', '#ffe08a');
+    burst(hero.x, hero.y - 40, 34, { color: '#ffe08a', glow: true, min: 30, max: 200, lifeMin: 0.4, lifeMax: 1.1, sizeMin: 1.5, sizeMax: 3.6, g: -90 });
+    sfx('level');
+  }
+}
+
+/* ============================================================
+   UPDATE
+   ============================================================ */
+function updateHero(dt) {
+  if (!hero) return;
+
+  // aim
+  const wx = mouse.sx + cam.x, wy = mouse.sy + cam.y;
+  mouse.wx = wx; mouse.wy = wy;
+  const ax = wx - hero.x, ay = wy - (hero.y - 28);
+  if (Math.hypot(ax, ay) > 6) hero.aim = Math.atan2(ay, ax);
+
+  // move
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['ц'] || keys['arrowup']) dy--;
+  if (keys['s'] || keys['ы'] || keys['arrowdown']) dy++;
+  if (keys['a'] || keys['ф'] || keys['arrowleft']) dx--;
+  if (keys['d'] || keys['в'] || keys['arrowright']) dx++;
+  const len = Math.hypot(dx, dy);
+  hero.moving = len > 0;
+  if (len > 0) {
+    dx /= len; dy /= len;
+    const sp = hero.speed * (hero.swingT > 0 ? 0.6 : 1) * dt;
+    tryMove(hero, dx * sp, dy * sp);
+    hero.walkT += dt * 11;
+  } else {
+    hero.walkT += dt * 2.2;
+  }
+
+  // knockback
+  if (Math.abs(hero.kx) > 1 || Math.abs(hero.ky) > 1) {
+    tryMove(hero, hero.kx * dt, hero.ky * dt);
+    const damp = Math.pow(0.0008, dt);
+    hero.kx *= damp; hero.ky *= damp;
+  }
+
+  // timers
+  hero.atkCd = Math.max(0, hero.atkCd - dt);
+  hero.castCd = Math.max(0, hero.castCd - dt);
+  hero.potCd.hp = Math.max(0, hero.potCd.hp - dt);
+  hero.potCd.mp = Math.max(0, hero.potCd.mp - dt);
+  hero.hurtT = Math.max(0, hero.hurtT - dt);
+  hero.mana = Math.min(hero.maxMana, hero.mana + 3.2 * dt);
+
+  // swing
+  if (hero.swingT > 0) {
+    hero.swingT -= dt;
+    const p = 1 - Math.max(0, hero.swingT) / hero.swingDur;
+    if (!hero.swingDone && p >= 0.4) {
+      hero.swingDone = true;
+      swordHit();
+    }
+    if (p > 0.35 && p < 0.9) {
+      const a = hero.swingAim + rand(-1, 1) * 0.9;
+      addParticle({
+        x: hero.x + Math.cos(a) * rand(45, 80), y: hero.y - 30 + Math.sin(a) * rand(0, 22),
+        vx: Math.cos(a) * 30, vy: -20, life: 0.24, max: 0.24,
+        size: rand(1, 2.6), color: '#dceaff', glow: true, g: 0, drag: 0.9,
+      });
+    }
+  }
+
+  // held buttons
+  if (mouse.left || keys[' ']) tryAttack();
+  if (mouse.right) tryCast();
+}
+
+function steerToward(m, dx, dy, dt, mult) {
+  const base = Math.atan2(dy, dx);
+  const step = m.speed * (mult || 1) * dt;
+  const test = m.isBoss ? collidesForBoss : collides;
+  const offsets = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.5, -1.5, 2.0, -2.0, 2.6, -2.6];
+  for (const off of offsets) {
+    const a = base + off;
+    const nx = Math.cos(a) * step, ny = Math.sin(a) * step;
+    if (!test(m.x + nx, m.y + ny, m.r)) {
+      m.x += nx; m.y += ny;
+      m.moving = true;
+      return true;
+    }
+  }
+  m.moving = false;
+  return false;
+}
+
+function updateMonsters(dt) {
+  for (const m of monsters) {
+    if (m.dead) { m.deadT += dt; continue; }
+    m.hurtT = Math.max(0, m.hurtT - dt);
+    m.animT += dt;
+    m.lungeT = Math.max(0, m.lungeT - dt);
+
+    if (Math.abs(m.kx) > 1 || Math.abs(m.ky) > 1) {
+      tryMove(m, m.kx * dt, m.ky * dt);
+      const damp = Math.pow(0.0015, dt);
+      m.kx *= damp; m.ky *= damp;
+    }
+
+    const dx = hero.x - m.x, dy = hero.y - m.y;
+    const d = Math.hypot(dx, dy) || 1;
+    if (!m.aggro && d < 540) m.aggro = true;
+    if (!m.isBoss && Math.abs(dx) > 4) m.facingLeft = dx < 0;
+
+    if (m.isBoss) {
+      updateBoss(m, dt, dx, dy, d);
+      continue;
+    }
+
+    if (m.windup > 0) {
+      m.windup -= dt;
+      if (m.windup <= 0) monsterStrike(m);
+      continue;
+    }
+
+    m.atkCd = Math.max(0, m.atkCd - dt);
+
+    if (m.aggro) {
+      if (m.kind === 'shaman') {
+        const los = hasLOS(m.x, m.y - 20, hero.x, hero.y - 26);
+        if (m.atkCd <= 0 && d < 380 && los) {
+          m.windup = m.windupMax;
+          m.attackType = 'ranged';
+        } else if (d < 160) {
+          steerToward(m, -dx / d, -dy / d, dt);
+        } else if (d > 300) {
+          steerToward(m, dx / d, dy / d, dt);
+        } else {
+          // strafe a bit to feel alive
+          const s = Math.sin(m.animT * 0.8) > 0 ? 1 : -1;
+          steerToward(m, -dy / d * s, dx / d * s, dt);
+        }
+      } else {
+        const reach = m.range + hero.r;
+        if (d > reach * 0.85) {
+          steerToward(m, dx / d, dy / d, dt);
+        } else if (m.atkCd <= 0) {
+          m.windup = m.windupMax;
+          m.attackType = 'melee';
+        }
+      }
+    }
+
+    // push apart from hero
+    const hdx = hero.x - m.x, hdy = hero.y - m.y;
+    const hd = Math.hypot(hdx, hdy) || 1;
+    const minD = hero.r + m.r;
+    if (hd < minD) {
+      const push = (minD - hd) * 0.5;
+      const ux = hdx / hd, uy = hdy / hd;
+      if (!collides(m.x - ux * push, m.y - uy * push, m.r)) { m.x -= ux * push; m.y -= uy * push; }
+    }
+  }
+
+  // monster separation
+  for (let i = 0; i < monsters.length; i++) {
+    const a = monsters[i];
+    if (a.dead) continue;
+    for (let j = i + 1; j < monsters.length; j++) {
+      const b = monsters[j];
+      if (b.dead) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 0.01;
+      const minD = a.r + b.r;
+      if (d < minD) {
+        const push = (minD - d) * 0.5;
+        const ux = dx / d, uy = dy / d;
+        if (!collides(a.x - ux * push, a.y - uy * push, a.r)) { a.x -= ux * push; a.y -= uy * push; }
+        if (!collides(b.x + ux * push, b.y + uy * push, b.r)) { b.x += ux * push; b.y += uy * push; }
+      }
+    }
+  }
+
+  if (monsters.some(m => m.dead && m.deadT > 1.1)) {
+    monsters = monsters.filter(m => !(m.dead && m.deadT > 1.1));
+  }
+}
+
+/* ---- mini-boss AI: телеграф замаха и залп с зарядкой ---- */
+function updateBoss(m, dt, dx, dy, d) {
+  const hd = Math.hypot(dx, dy) || 1;
+  const minD = hero.r + m.r;
+  if (hd < minD) {
+    const push = minD - hd;
+    const ux = dx / hd, uy = dy / hd;
+    if (!collidesForBoss(m.x - ux * push, m.y - uy * push, m.r)) { m.x -= ux * push; m.y -= uy * push; }
+  }
+
+  if (!m.aggro && d < 900) m.aggro = true;
+  if (m.bossPhase === 'meleeWind' || m.bossPhase === 'rangeWind') {
+    m.facingLeft = Math.cos(m.attackAim) < 0;
+  } else if (Math.abs(dx) > 4) {
+    m.facingLeft = dx < 0;
+  }
+  m.phaseT = Math.max(0, m.phaseT - dt);
+  m.flashArc = Math.max(0, m.flashArc - dt);
+  m.rainCd = Math.max(0, m.rainCd - dt);
+
+  if (m.bossPhase === 'emerge') {
+    const tx = m.emergeTarget ? m.emergeTarget.x : m.x;
+    const ty = m.emergeTarget ? m.emergeTarget.y : m.y;
+    const ex = tx - m.x, ey = ty - m.y;
+    const ed = Math.hypot(ex, ey);
+    if (ed > 16) {
+      m.moving = true;
+      steerToward(m, ex / ed, ey / ed, dt, 1.75);
+      if (Math.random() < dt * 26) {
+        burst(m.x + rand(-30, 30), m.y - 4, 1, { color: '#8a5a3a', min: 5, max: 26, lifeMin: 0.2, lifeMax: 0.5, sizeMin: 1, sizeMax: 2.6, g: 40 });
+      }
+    } else {
+      m.bossPhase = 'idle';
+      m.atkCd = 0.9;
+      m.moving = false;
+      sfx('roar');
+      shake = Math.max(shake, 9);
+      toast('Диабло вышел из бездны', '#ff9a6a');
+    }
+    return;
+  }
+
+  if (m.phase === 1 && m.hp <= m.maxHp * 0.66) { enterRage(m, 2); return; }
+  if (m.phase === 2 && m.hp <= m.maxHp * 0.33) { enterRage(m, 3); return; }
+
+  if (m.bossPhase === 'roar') {
+    m.moving = false;
+    if (m.phaseT <= 0) { m.bossPhase = 'idle'; m.atkCd = 0.65; }
+    return;
+  }
+
+  if (m.bossPhase === 'meleeWind') {
+    m.moving = false;
+    if (m.phaseT <= 0) {
+      bossCleave(m);
+      m.flashArc = 0.28;
+      m.bossPhase = 'recover';
+      m.phaseT = m.isSuper ? 0.9 : 1.0;
+      m.atkCd = rand(0.45, 0.85);
+    }
+    return;
+  }
+
+  if (m.bossPhase === 'rangeWind') {
+    m.moving = false;
+    if (Math.random() < dt * 34) {
+      const a = m.attackAim + rand(-0.35, 0.35);
+      addParticle({
+        x: m.x + Math.cos(m.attackAim) * rand(14, 30),
+        y: m.y - 52 + Math.sin(m.attackAim) * rand(2, 12),
+        vx: Math.cos(a) * 26, vy: -34,
+        life: rand(0.2, 0.5), max: 0.5, size: rand(1.3, 3),
+        color: '#ffab45', glow: true, g: -20, drag: 0.94,
+      });
+    }
+    if (m.phaseT <= 0) {
+      bossVolley(m);
+      m.bossPhase = 'recover';
+      m.phaseT = m.isSuper ? 0.75 : 0.8;
+      m.atkCd = rand(0.5, 0.9);
+    }
+    return;
+  }
+
+  if (m.bossPhase === 'rainCast') {
+    m.moving = false;
+    if (Math.random() < dt * 46) {
+      addParticle({
+        x: m.x + rand(-46, 46), y: m.y - rand(60, 130),
+        vx: rand(-12, 12), vy: rand(-40, -12),
+        life: rand(0.3, 0.7), max: 0.7, size: rand(1.4, 3.4),
+        color: Math.random() < 0.5 ? '#ffab45' : '#ff5a1e', glow: true, g: -30, drag: 0.95,
+      });
+    }
+    if (m.phaseT <= 0) {
+      castFireRain(m);
+      m.bossPhase = 'recover';
+      m.phaseT = 1.0;
+      m.atkCd = rand(0.7, 1.1);
+    }
+    return;
+  }
+
+  if (m.bossPhase === 'recover') {
+    m.moving = false;
+    if (m.phaseT <= 0) m.bossPhase = 'idle';
+    return;
+  }
+
+  // idle: сближается и выбирает атаку
+  m.atkCd = Math.max(0, m.atkCd - dt);
+  if (m.atkCd <= 0) {
+    const los = hasLOS(m.x, m.y - 40, hero.x, hero.y - 24);
+    if (m.isSuper && m.phase >= 2 && m.rainCd <= 0) {
+      m.bossPhase = 'rainCast';
+      m.phaseT = 0.6;
+      m.rainCd = m.phase >= 3 ? 6.0 : 8.5;
+      m.nextAttack = 'melee';
+      sfx('rainCast');
+      return;
+    }
+    const meleeReach = m.isSuper ? 178 : 145;
+    const maxRange = m.isSuper ? 780 : 620;
+    const wantRanged = m.nextAttack === 'ranged';
+    if (los && (d > meleeReach || wantRanged) && d <= maxRange) {
+      m.bossPhase = 'rangeWind';
+      m.phaseT = m.isSuper ? 1.2 : 1.15;
+      m.attackAim = Math.atan2((hero.y - 26) - (m.y - 52), hero.x - m.x);
+      m.nextAttack = 'melee';
+      sfx('warnRange');
+      return;
+    }
+    if (los && d <= meleeReach) {
+      m.bossPhase = 'meleeWind';
+      m.phaseT = m.meleeWind;
+      m.attackAim = Math.atan2(hero.y - m.y, hero.x - m.x);
+      m.nextAttack = 'ranged';
+      sfx('warnMelee');
+      burst(m.x, m.y - 8, 10, { color: '#8a6a4a', min: 10, max: 60, lifeMin: 0.15, lifeMax: 0.4, sizeMin: 1, sizeMax: 2.6, g: 90 });
+      return;
+    }
+  }
+  if (d > (m.isSuper ? 125 : 105)) steerToward(m, dx / d, dy / d, dt);
+  else m.moving = false;
+}
+
+function enterRage(m, phase) {
+  m.phase = phase;
+  m.bossPhase = 'roar';
+  m.phaseT = 0.95;
+  m.moving = false;
+  m.flashArc = 0.32;
+  shake = Math.max(shake, 15);
+  sfx('roar');
+  burst(m.x, m.y - 70, 36, { color: '#ff6a2a', glow: true, min: 40, max: 240, lifeMin: 0.4, lifeMax: 1.1, sizeMin: 1.6, sizeMax: 4, g: -70 });
+  if (phase === 2) {
+    m.rainCd = 4.2;
+    toast('Диабло в ярости!', '#ff8a5a');
+    if (!m.summoned) {
+      m.summoned = true;
+      summonAdds(m);
+    }
+  } else {
+    m.rainCd = 1.8;
+    toast('Диабло теряет рассудок!', '#ff5a3a');
+  }
+}
+
+function summonAdds(m) {
+  const cands = [
+    [m.x - 120, m.y + 70], [m.x + 120, m.y + 70], [m.x, m.y - 130],
+    [m.x - 170, m.y + 120], [m.x + 170, m.y + 120], [m.x, m.y + 130],
+    [16.5 * TILE, 6.5 * TILE], [14.5 * TILE, 7.5 * TILE], [18.5 * TILE, 7.5 * TILE],
+    [16.5 * TILE, 16.5 * TILE], [12.5 * TILE, 16.5 * TILE], [21.5 * TILE, 16.5 * TILE],
+  ];
+  let spawned = 0;
+  for (const [x, y] of cands) {
+    if (spawned >= 2) break;
+    if (collides(x, y, 13)) continue;
+    let tooClose = false;
+    for (const o of monsters) {
+      if (!o.dead && dist2(o.x, o.y, x, y) < 40 * 40) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
+    const imp = makeMonster('imp', x, y);
+    imp.aggro = true;
+    monsters.push(imp);
+    burst(x, y - 18, 20, { color: '#b07cff', glow: true, min: 30, max: 150, lifeMin: 0.3, lifeMax: 0.8, sizeMin: 1.4, sizeMax: 3.2, g: -50 });
+    spawned++;
+  }
+  sfx('portal');
+  if (spawned > 0) toast('Диабло призывает слуг!', '#c79aff');
+}
+
+function castFireRain(m) {
+  const want = m.phase >= 3 ? 5 : 3;
+  const pts = [];
+  const tryAdd = (x, y) => {
+    const t = tileAt(Math.floor(x / TILE), Math.floor(y / TILE));
+    if (t === T_TUNNEL) return;
+    if (tileBlocksWalk(t)) return;
+    for (const p of pts) if (dist2(p.x, p.y, x, y) < 70 * 70) return;
+    pts.push({ x, y });
+  };
+  tryAdd(hero.x, hero.y);
+  for (let i = 0; i < 60 && pts.length < want; i++) {
+    const a = rand(0, TAU), r = rand(70, 250);
+    tryAdd(hero.x + Math.cos(a) * r, hero.y + Math.sin(a) * r);
+  }
+  for (let i = 0; i < pts.length; i++) {
+    meteors.push({
+      x: pts[i].x, y: pts[i].y, r: 66,
+      dmg: Math.round(m.dmg * 0.8),
+      t: 1.2 + i * 0.16, maxT: 1.2 + i * 0.16,
+      state: 'warn', life: 0,
+    });
+  }
+  shake = Math.max(shake, 4);
+  sfx('rainCast');
+}
+
+function bossCleave(m) {
+  const R = m.meleeR, half = m.meleeHalf;
+  const a = Math.atan2(hero.y - m.y, hero.x - m.x);
+  const dist = Math.hypot(hero.x - m.x, hero.y - m.y);
+  const seen = hasLOS(m.x, m.y - 20, hero.x, hero.y - 20);
+  const heroHigh = isElevatedTile(hero.x, hero.y - 2);
+  const overVoid = lineHitsVoid(m.x, m.y, hero.x, hero.y);
+  if (!heroHigh && !overVoid && seen && dist < R + hero.r * 0.6 && Math.abs(angleDiff(a, m.attackAim)) < half) {
+    hurtHero(m.dmg, a);
+  }
+  const count = m.isSuper ? 44 : 30;
+  for (let i = 0; i < count; i++) {
+    const aa = m.attackAim + rand(-half, half);
+    const rr = rand(30, R);
+    addParticle({
+      x: m.x + Math.cos(aa) * rr, y: m.y + Math.sin(aa) * rr * 0.75,
+      vx: Math.cos(aa) * rand(20, 110), vy: Math.sin(aa) * rand(20, 110) - 20,
+      life: rand(0.2, 0.6), max: 0.6, size: rand(1.4, 3.8),
+      color: i % 3 ? '#ffb057' : '#ff6a2a', glow: true, g: 120, drag: 0.9,
+    });
+  }
+  shake = Math.max(shake, m.isSuper ? 13 : 10);
+  sfx('bossSlam');
+}
+
+function bossVolley(m) {
+  const sx = m.x + Math.cos(m.attackAim) * 16;
+  const sy = m.y - 52 + Math.sin(m.attackAim) * 9;
+  const shots = m.isSuper ? 5 : 3;
+  const spread = m.isSuper ? 0.21 : 0.16;
+  for (let i = 0; i < shots; i++) {
+    const off = (i - (shots - 1) / 2) * spread;
+    const a = m.attackAim + off;
+    projectiles.push({
+      side: 'mon', type: 'bossfire',
+      x: sx, y: sy,
+      vx: Math.cos(a) * 250, vy: Math.sin(a) * 250,
+      r: 10, life: 3.4, dmg: Math.max(1, Math.round(m.dmg * 0.62)), trail: 0,
+    });
+  }
+  burst(sx, sy, 20, { angle: m.attackAim, spread: 0.55, color: '#ffab45', glow: true, min: 60, max: 240, lifeMin: 0.2, lifeMax: 0.55, sizeMin: 2, sizeMax: 4.5, g: 0 });
+  shake = Math.max(shake, 5);
+  sfx('bossVolley');
+}
+
+function monsterStrike(m) {
+  m.atkCd = m.atkCdBase * rand(0.9, 1.15);
+  if (m.attackType === 'ranged') {
+    const sx = m.x, sy = m.y - 32 * m.size;
+    const a = Math.atan2((hero.y - 28) - sy, hero.x - sx);
+    projectiles.push({
+      side: 'mon', type: 'shadow',
+      x: sx + Math.cos(a) * 14, y: sy + Math.sin(a) * 14,
+      vx: Math.cos(a) * 310, vy: Math.sin(a) * 310,
+      r: 7, life: 2.2, dmg: m.dmg, trail: 0,
+    });
+    sfx('fire');
+    return;
+  }
+  m.lungeT = 0.18;
+  const d = Math.hypot(hero.x - m.x, hero.y - m.y);
+  if (d <= m.range + hero.r + 8) {
+    hurtHero(m.dmg, Math.atan2(hero.y - m.y, hero.x - m.x));
+    burst(hero.x, hero.y - 34, 8, { color: '#ff8a5a', glow: true, angle: Math.atan2(hero.y - m.y, hero.x - m.x), spread: 0.9, min: 30, max: 140, lifeMin: 0.15, lifeMax: 0.4, sizeMin: 1.5, sizeMax: 3, g: 60 });
+  } else {
+    burst(m.x + Math.cos(Math.atan2(hero.y - m.y, hero.x - m.x)) * 30, m.y - 26, 4, { color: '#6d6355', min: 10, max: 40, lifeMin: 0.1, lifeMax: 0.25, sizeMin: 1, sizeMax: 2, g: 120 });
+  }
+}
+
+function updateProjectiles(dt) {
+  for (const p of projectiles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    p.trail -= dt;
+    if (p.trail <= 0) {
+      p.trail = 0.025;
+      addParticle({
+        x: p.x + rand(-2, 2), y: p.y + rand(-2, 2),
+        vx: rand(-20, 20), vy: rand(-20, 20),
+        life: rand(0.16, 0.32), max: 0.32,
+        size: rand(1.2, 3), color: (p.type === 'fire' || p.type === 'bossfire') ? '#ffae3d' : '#b07cff',
+        glow: true, g: -10, drag: 0.92,
+      });
+    }
+    if (p.dead) continue;
+
+    // wall
+    if (blocksProjectile(Math.floor(p.x / TILE), Math.floor(p.y / TILE))) {
+      if (p.type === 'fire') heroFireballExplode(p.x, p.y, 72, p.dmg);
+      else burst(p.x, p.y, 10, { color: p.type === 'bossfire' ? '#ff9b2e' : '#a06cff', glow: true, min: 20, max: 120, lifeMin: 0.15, lifeMax: 0.4, sizeMin: 1.2, sizeMax: 3, g: 0 });
+      p.dead = true;
+      continue;
+    }
+
+    if (p.side === 'hero') {
+      for (const m of monsters) {
+        if (m.dead) continue;
+        const mx = m.x, my = m.y - 20 * m.size;
+        if (Math.hypot(p.x - mx, p.y - my) < p.r + m.r + 3) {
+          heroFireballExplode(p.x, p.y, 76, p.dmg);
+          p.dead = true;
+          break;
+        }
+      }
+    } else {
+      if (Math.hypot(p.x - hero.x, p.y - (hero.y - 28)) < p.r + 16) {
+        hurtHero(p.dmg, Math.atan2(p.vy, p.vx));
+        burst(p.x, p.y, 14, { color: '#b07cff', glow: true, min: 20, max: 140, lifeMin: 0.15, lifeMax: 0.45, sizeMin: 1.4, sizeMax: 3.2, g: 0 });
+        p.dead = true;
+      }
+    }
+  }
+  projectiles = projectiles.filter(p => !p.dead && p.life > 0);
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.vy += (p.g || 0) * dt;
+    const d = Math.pow(p.drag === undefined ? 0.92 : p.drag, dt * 60);
+    p.vx *= d; p.vy *= d;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+}
+
+function updateNumbers(dt) {
+  for (let i = numbers.length - 1; i >= 0; i--) {
+    const n = numbers[i];
+    n.life -= dt;
+    n.y += n.vy * dt;
+    n.vy *= Math.pow(0.2, dt);
+    if (n.life <= 0) numbers.splice(i, 1);
+  }
+}
+
+function updateDecals(dt) {
+  for (let i = decals.length - 1; i >= 0; i--) {
+    const d = decals[i];
+    if (d.max < 9000) {
+      d.life -= dt;
+      if (d.life <= 0) decals.splice(i, 1);
+    }
+  }
+}
+
+/* ============================================================
+   ФИНАЛЬНАЯ АРЕНА: кат-сцена, врата, Диабло
+   ============================================================ */
+function setCinematic(on) {
+  document.getElementById('cineTop').classList.toggle('on', on);
+  document.getElementById('cineBot').classList.toggle('on', on);
+  if (!on) hideCineText();
+}
+function showCine(title, sub) {
+  document.getElementById('cineTitle').textContent = title;
+  document.getElementById('cineSub').textContent = sub || '';
+  document.getElementById('cineText').classList.add('on');
+}
+function hideCineText() {
+  document.getElementById('cineText').classList.remove('on');
+}
+
+function setSouthGate(closed) {
+  if (!map) return;
+  for (let x = map.southGateX0; x <= map.southGateX1; x++) {
+    map.grid[map.southGateY][x] = closed ? T_GATE : T_FLOOR;
+  }
+  const cx = ((map.southGateX0 + map.southGateX1 + 1) / 2) * TILE;
+  const cy = (map.southGateY + 0.6) * TILE;
+  burst(cx, cy, 26, { color: '#8a7a5a', min: 20, max: 150, lifeMin: 0.3, lifeMax: 0.9, sizeMin: 1.2, sizeMax: 3.4, g: 120 });
+  shake = Math.max(shake, closed ? 13 : 7);
+  sfx(closed ? 'seal' : 'stone');
+}
+
+function startArenaSequence() {
+  arena.triggered = true;
+  arena.phase = 'seal';
+  arena.t = 0;
+  closeArenaGateSouth();
+  darkTarget = 0.22;
+  camFocus = { x: 16 * TILE, y: 3.4 * TILE, t: 8 };
+  setCinematic(true);
+  showCine('ДВЕРИ ЗАПЕРТЫ', 'обратной дороги нет');
+  shake = Math.max(shake, 14);
+}
+function closeArenaGateSouth() { setSouthGate(true); }
+
+function spawnDiablo() {
+  if (!map || !map.isArena) return;
+  const b = makeMonster('diablo', map.bossSpawn.x, map.bossSpawn.y);
+  b.aggro = true;
+  b.bossPhase = 'emerge';
+  b.emergeTarget = { x: map.bossAim.x, y: map.bossAim.y };
+  b.atkCd = 999;
+  b.roared = true;
+  arena.boss = b;
+  monsters.push(b);
+  flash = Math.min(1, flash + 0.35);
+  shake = Math.max(shake, 16);
+  burst(b.x, b.y - 70, 60, { color: '#ff5a1e', glow: true, min: 50, max: 300, lifeMin: 0.4, lifeMax: 1.3, sizeMin: 1.6, sizeMax: 4.4, g: -90 });
+  burst(b.x, b.y - 8, 30, { color: '#8a7a5a', min: 20, max: 170, lifeMin: 0.3, lifeMax: 0.9, sizeMin: 1.2, sizeMax: 3.4, g: 130 });
+  sfx('roar');
+}
+
+function updateArena(dt) {
+  if (!arena || !map || !map.isArena) return;
+  const a = arena;
+
+  if (!a.triggered) {
+    const minionsAlive = monsters.some(m => !m.dead);
+    if (!minionsAlive && hero.y < map.triggerY) startArenaSequence();
+    return;
+  }
+
+  if (a.phase === 'fight') {
+    if (a.boss && a.boss.dead) {
+      a.phase = 'victory';
+      a.t = 0;
+      darkTarget = 0.07;
+      hero.hp = Math.max(hero.hp, 1);
+      meteors = [];
+      projectiles = [];
+      setSouthGate(false);
+      shake = Math.max(shake, 12);
+    }
+    return;
+  }
+
+  if (a.phase === 'victory') {
+    a.t += dt;
+    if (a.t > 2.2 && !a.victoryShown) {
+      a.victoryShown = true;
+      victory();
+    }
+    return;
+  }
+
+  a.t += dt;
+
+  if (a.phase === 'seal') {
+    if (a.t > 0.85) {
+      a.phase = 'dim'; a.t = 0;
+      showCine('СВЕТ ГАСНЕТ', 'древние камни просыпаются');
+    }
+    return;
+  }
+
+  if (a.phase === 'dim') {
+    darkTarget = 0.22 + Math.min(1, a.t / 1.3) * 0.24;
+    if (Math.random() < dt * 12) {
+      burst(16 * TILE + rand(-90, 90), 5 * TILE, 1, { color: '#3a2a24', min: 4, max: 20, lifeMin: 0.4, lifeMax: 1.0, sizeMin: 1, sizeMax: 2, g: -20 });
+    }
+    if (a.t > 1.3) {
+      a.phase = 'open'; a.t = 0;
+      darkTarget = 0.47;
+      showCine('СТЕНЫ ДРОЖАТ', 'северный проход открывается');
+      sfx('stone');
+    }
+    return;
+  }
+
+  if (a.phase === 'open') {
+    shake = Math.max(shake, 3);
+    if (Math.random() < dt * 34) {
+      burst((14 + Math.random() * 4) * TILE, (4 + Math.random()) * TILE, 1, { color: '#8a7a5a', min: 10, max: 70, lifeMin: 0.3, lifeMax: 0.8, sizeMin: 1, sizeMax: 3, g: 140 });
+    }
+    if (a.t > 1.25) {
+      for (let x = map.bossGateX0; x <= map.bossGateX1; x++) map.grid[map.bossGateY][x] = T_FLOOR;
+      const gx = ((map.bossGateX0 + map.bossGateX1 + 1) / 2) * TILE;
+      burst(gx, (map.bossGateY + 0.5) * TILE, 44, { color: '#a08a6a', min: 30, max: 240, lifeMin: 0.4, lifeMax: 1.2, sizeMin: 1.4, sizeMax: 4, g: 120 });
+      burst(gx, (map.bossGateY + 0.5) * TILE, 24, { color: '#ff6a2a', glow: true, min: 40, max: 220, lifeMin: 0.3, lifeMax: 0.9, sizeMin: 1.6, sizeMax: 3.8, g: -30 });
+      spawnDiablo();
+      a.phase = 'emerge'; a.t = 0;
+      darkTarget = 0.42;
+      showCine('ДИАБЛО', 'владыка ужаса');
+      shake = Math.max(shake, 18);
+    }
+    return;
+  }
+
+  if (a.phase === 'emerge') {
+    const b = a.boss;
+    if ((b && b.bossPhase === 'idle') || a.t > 5.5) {
+      a.phase = 'fight'; a.t = 0;
+      darkTarget = 0.30;
+      camFocus = null;
+      setCinematic(false);
+      hideCineText();
+      toast('Бой с Диабло!', '#ff9a6a');
+    }
+  }
+}
+
+function updateMeteors(dt) {
+  for (const mt of meteors) {
+    if (mt.state === 'warn') {
+      mt.t -= dt;
+      if (mt.t <= 0) {
+        mt.state = 'boom';
+        mt.life = 0.5;
+        const dd = Math.hypot(hero.x - mt.x, hero.y - mt.y);
+        if (dd < mt.r * 0.9 + hero.r * 0.4) {
+          hurtHero(mt.dmg, Math.atan2(hero.y - mt.y, hero.x - mt.x));
+        }
+        burst(mt.x, mt.y, 30, { color: '#ff9b2e', glow: true, min: 40, max: 280, lifeMin: 0.2, lifeMax: 0.6, sizeMin: 2, sizeMax: 5.2, g: 40 });
+        burst(mt.x, mt.y, 14, { color: '#ffe9b0', glow: true, min: 20, max: 170, lifeMin: 0.15, lifeMax: 0.45, sizeMin: 1.5, sizeMax: 3.4, g: 20 });
+        const blobs = [];
+        for (let k = 0; k < 4; k++) blobs.push({ dx: rand(-1, 1) * 20, dy: rand(-1, 1) * 12, r: rand(5, 15) });
+        decals.push({ x: mt.x, y: mt.y, blobs, life: 16, max: 16, color: '#1a100a', alpha: 0.8 });
+        shake = Math.max(shake, 6);
+        sfx('boom');
+      }
+    } else {
+      mt.life -= dt;
+    }
+  }
+  meteors = meteors.filter(mt => mt.state === 'warn' || mt.life > 0);
+}
+
+function victory() {
+  if (state.mode !== 'playing') return;
+  state.mode = 'won';
+  darkTarget = 0.06;
+  setCinematic(false);
+  hideCineText();
+  sfx('bossDown');
+  showOverlay(`
+    <div class="ov-inner">
+      <h1 class="ov-title">ПОБЕДА</h1>
+      <div class="ov-sub">Диабло повержен</div>
+      <div class="ov-stats">
+        <div>Уровней<b>${state.depth}</b></div>
+        <div>Убито<b>${state.kills}</b></div>
+        <div>Золото<b>${state.gold}</b></div>
+        <div>Уровень героя<b>${hero.level}</b></div>
+      </div>
+      <button class="btn" data-act="restart" type="button">Играть снова</button>
+      <div class="ov-tip">Это превью: три уровня и финальный босс пройдены.</div>
+    </div>
+  `);
+}
+
+function updatePortal(dt) {
+  if (map && map.isArena) return;
+  if (!portal) {
+    if (state.mode === 'playing') {
+      const allDead = !levelHasMonsters || monsters.every(m => m.dead);
+      if (allDead) {
+        clearT += dt;
+        if (clearT >= 0.9) {
+          portal = { x: portalSpot.x, y: portalSpot.y, t: 0, arm: 0.9, particles: 0 };
+          toast('Все враги мертвы! Открылся портал', '#9fe4ff');
+          sfx('portal');
+        }
+      }
+    }
+    return;
+  }
+  portal.t += dt;
+  portal.arm = Math.max(0, (portal.arm || 0) - dt);
+  portal.particles -= dt;
+  if (portal.particles <= 0) {
+    portal.particles = 0.09;
+    addParticle({
+      x: portal.x + rand(-22, 22), y: portal.y - rand(6, 86),
+      vx: rand(-14, 14), vy: rand(-55, -15),
+      life: rand(0.6, 1.4), max: 1.4,
+      size: rand(1, 2.6), color: '#8fe4ff', glow: true, g: 0, drag: 0.96,
+    });
+  }
+  if (portal.arm <= 0 && dist2(hero.x, hero.y, portal.x, portal.y) < 40 * 40) {
+    nextDepth();
+  }
+}
+
+function nextDepth() {
+  if (state.depth >= MAX_DEPTH) { victory(); return; }
+  hero.hp = Math.min(hero.maxHp, hero.hp + hero.maxHp * 0.3);
+  hero.mana = hero.maxMana;
+  hero.potions.hp = Math.min(9, hero.potions.hp + 1);
+  hero.potions.mp = Math.min(9, hero.potions.mp + 1);
+  buildLevel(state.depth + 1);
+  toast('Уровень ' + state.depth + ' из ' + MAX_DEPTH, '#ffe08a');
+  sfx('portal');
+}
+
+function updateCamera(dt) {
+  if (!hero) return;
+  let tx, ty;
+  if (camFocus) {
+    camFocus.t -= dt;
+    tx = camFocus.x - view.w / 2;
+    ty = camFocus.y - view.h / 2;
+    if (camFocus.t <= 0) camFocus = null;
+  } else {
+    tx = hero.x - view.w / 2;
+    ty = hero.y - view.h / 2;
+  }
+  const k = 1 - Math.pow(0.00012, dt);
+  cam.x = lerp(cam.x, tx, k);
+  cam.y = lerp(cam.y, ty, k);
+  clampCam();
+}
+
+function update(dt) {
+  updateHero(dt);
+  updateMonsters(dt);
+  updateProjectiles(dt);
+  updateParticles(dt);
+  updateNumbers(dt);
+  updateDecals(dt);
+  updatePortal(dt);
+  updateArena(dt);
+  updateMeteors(dt);
+  updateCamera(dt);
+  if (hero.hp <= 0 && state.mode === 'playing' && !(arena && arena.phase === 'victory')) gameOver();
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const FLOOR_KEYS = ['floor1', 'floor2', 'floor3'];
+
+function drawSprite(name, x, y, scale, flip, alpha, rot, anchorY) {
+  const a = assets[name];
+  if (!a) return;
+  scale = scale === undefined ? 1 : scale;
+  alpha = alpha === undefined ? 1 : alpha;
+  anchorY = anchorY === undefined ? 1 : anchorY;
+  const w = a.w * scale, h = a.h * scale;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  if (rot) ctx.rotate(rot);
+  if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(a.img, -w / 2, -h * anchorY, w, h);
+  ctx.restore();
+}
+
+function shadowBlob(x, y, rx, ry, a) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, 1, 0, 0, rx);
+  g.addColorStop(0, 'rgba(0,0,0,' + a + ')');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function tileVariant(x, y) {
+  const h = (x * 73856093) ^ (y * 19349663) ^ (x * y * 83492791);
+  return Math.abs(h) % 3;
+}
+
+function drawFloor() {
+  if (!map) return;
+  const x0 = Math.max(0, Math.floor(cam.x / TILE) - 1);
+  const x1 = Math.min(map.W - 1, Math.ceil((cam.x + view.w) / TILE));
+  const y0 = Math.max(0, Math.floor(cam.y / TILE) - 1);
+  const y1 = Math.min(map.H - 1, Math.ceil((cam.y + view.h) / TILE));
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = map.grid[y][x];
+      const px = x * TILE, py = y * TILE;
+      if (t === T_WALL) {
+        if (assets.wall) ctx.drawImage(assets.wall.img, px, py, TILE, TILE);
+      } else if (t === T_VOID) {
+        if (assets.pit) ctx.drawImage(assets.pit.img, px, py, TILE, TILE);
+      } else if (t === T_BRIDGE) {
+        if (assets.bridge) ctx.drawImage(assets.bridge.img, px, py, TILE, TILE);
+      } else if (t === T_PLATFORM) {
+        if (assets.platform) ctx.drawImage(assets.platform.img, px, py, TILE, TILE);
+      } else if (t === T_STAIRS) {
+        if (assets.stairs) ctx.drawImage(assets.stairs.img, px, py, TILE, TILE);
+      } else if (t === T_TUNNEL) {
+        if (assets.tunnel) ctx.drawImage(assets.tunnel.img, px, py, TILE, TILE);
+      } else if (t === T_GATE) {
+        const a = assets[FLOOR_KEYS[tileVariant(x, y)]];
+        if (a) ctx.drawImage(a.img, px, py, TILE, TILE);
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        if (assets.bars) ctx.drawImage(assets.bars.img, px, py, TILE, TILE);
+        ctx.restore();
+        ctx.fillStyle = 'rgba(60,10,6,.16)';
+        ctx.fillRect(px, py, TILE, TILE);
+      } else if (t === T_BOSS_GATE) {
+        if (assets.wall) ctx.drawImage(assets.wall.img, px, py, TILE, TILE);
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        if (assets.bars) ctx.drawImage(assets.bars.img, px, py, TILE, TILE);
+        ctx.restore();
+        ctx.fillStyle = 'rgba(120,20,10,.2)';
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.strokeStyle = 'rgba(255,90,40,' + (0.18 + 0.12 * Math.sin(time * 3 + x)).toFixed(3) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px + 12, py + 10);
+        ctx.lineTo(px + 22, py + 34);
+        ctx.lineTo(px + 14, py + 54);
+        ctx.stroke();
+      } else {
+        const a = assets[FLOOR_KEYS[tileVariant(x, y)]];
+        if (a) ctx.drawImage(a.img, px, py, TILE, TILE);
+      }
+    }
+  }
+
+  // тени у края помоста
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (map.grid[y][x] !== T_PLATFORM) continue;
+      const px = x * TILE, py = y * TILE;
+      const below = y + 1 < map.H ? map.grid[y + 1][x] : T_WALL;
+      if (below !== T_PLATFORM && below !== T_STAIRS && below !== T_WALL && below !== T_VOID) {
+        const g = ctx.createLinearGradient(0, py + TILE, 0, py + TILE + 18);
+        g.addColorStop(0, 'rgba(0,0,0,.58)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(px, py + TILE, TILE, 18);
+      }
+      const right = x + 1 < map.W ? map.grid[y][x + 1] : T_WALL;
+      if (right !== T_PLATFORM && right !== T_STAIRS && right !== T_WALL && right !== T_VOID) {
+        const g = ctx.createLinearGradient(px + TILE, 0, px + TILE + 14, 0);
+        g.addColorStop(0, 'rgba(0,0,0,.5)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(px + TILE, py, 14, TILE);
+      }
+    }
+  }
+}
+
+function drawTorches() {
+  if (!map) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const t of map.torches) {
+    const fl = 0.85 + 0.15 * Math.sin(time * 9 + t.phase) + 0.05 * Math.sin(time * 27 + t.phase * 2);
+    const rr = 128 * fl;
+    const g = ctx.createRadialGradient(t.x, t.y - 10, 4, t.x, t.y - 10, rr);
+    g.addColorStop(0, 'rgba(255,170,70,.32)');
+    g.addColorStop(0.4, 'rgba(255,120,30,.11)');
+    g.addColorStop(1, 'rgba(255,90,20,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y - 10, rr, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+  for (const t of map.torches) drawSprite('torch', t.x, t.y, 1, false, 0.95, 0, 1);
+}
+
+function drawDecals() {
+  for (const d of decals) {
+    const fade = d.max > 9000 ? 1 : clamp(d.life / d.max, 0, 1);
+    if (fade <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = d.alpha * fade;
+    ctx.fillStyle = d.color;
+    for (const b of d.blobs) {
+      ctx.beginPath();
+      ctx.ellipse(d.x + b.dx, d.y + b.dy, b.r, b.r * 0.62, (b.dx + b.dy) * 0.05, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawBones() {
+  if (!map) return;
+  for (const b of map.bones) drawSprite('bones', b.x, b.y, b.s, b.rot > 0, 0.7, b.rot, 0.5);
+}
+
+function drawBossFx() {
+  for (const m of monsters) {
+    if (!m.isBoss || m.dead) continue;
+    const R = m.meleeR, half = m.meleeHalf;
+
+    if (m.bossPhase === 'meleeWind') {
+      const prog = clamp(1 - m.phaseT / m.meleeWind, 0, 1);
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.rotate(m.attackAim);
+      const g = ctx.createRadialGradient(0, 0, 20, 0, 0, R);
+      g.addColorStop(0, 'rgba(255,80,40,' + (0.10 + 0.24 * prog).toFixed(3) + ')');
+      g.addColorStop(0.65, 'rgba(255,55,25,' + (0.20 + 0.3 * prog).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,30,20,' + (0.06 + 0.08 * prog).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, R, -half, half);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,130,80,' + (0.45 + 0.5 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(-half) * R, Math.sin(-half) * R);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(half) * R, Math.sin(half) * R);
+      ctx.arc(0, 0, R, -half, half);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,200,130,' + (0.2 + 0.55 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, R * (0.2 + 0.8 * prog), -half, half);
+      ctx.stroke();
+      ctx.restore();
+    } else if (m.bossPhase === 'rangeWind') {
+      const prog = clamp(1 - m.phaseT / 1.2, 0, 1);
+      const sx = m.x, sy = m.y - 52;
+      const ex = sx + Math.cos(m.attackAim) * 760;
+      const ey = sy + Math.sin(m.attackAim) * 760;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,120,40,' + (0.05 + 0.1 * prog).toFixed(3) + ')';
+      ctx.lineWidth = m.isSuper ? 12 : 9;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,150,60,' + (0.16 + 0.34 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([12, 9]);
+      ctx.lineDashOffset = -time * 55;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const tg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 30);
+      tg.addColorStop(0, 'rgba(255,180,90,' + (0.2 + 0.45 * prog).toFixed(3) + ')');
+      tg.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = tg;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 30, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    } else if (m.bossPhase === 'rainCast') {
+      const prog = clamp(1 - m.phaseT / 0.6, 0, 1);
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.globalCompositeOperation = 'lighter';
+      const rr = 110 + 30 * prog;
+      const g = ctx.createRadialGradient(0, 0, 10, 0, 0, rr);
+      g.addColorStop(0, 'rgba(255,120,40,' + (0.06 + 0.14 * prog).toFixed(3) + ')');
+      g.addColorStop(0.7, 'rgba(255,60,20,' + (0.04 + 0.1 * prog).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,30,10,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, rr, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,140,60,' + (0.25 + 0.4 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = time * 60;
+      ctx.beginPath();
+      ctx.arc(0, 0, 88 + 26 * prog, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    if (m.flashArc > 0) {
+      const k = m.flashArc / 0.28;
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.rotate(m.attackAim);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,200,120,' + (0.5 * k).toFixed(3) + ')';
+      ctx.lineWidth = 28 * k + 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, R * 0.78, -half, half);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,220,' + (0.6 * k).toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, R * 0.97, -half, half);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+function drawPortal() {
+  if (!portal) return;
+  const px = portal.x, py = portal.y;
+  ctx.save();
+  ctx.translate(px, py - 46);
+
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 98);
+  g.addColorStop(0, 'rgba(130,215,255,.42)');
+  g.addColorStop(0.5, 'rgba(70,120,255,.14)');
+  g.addColorStop(1, 'rgba(60,40,220,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 98, 0, TAU);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  // stone arch
+  ctx.fillStyle = '#262030';
+  ctx.strokeStyle = '#4b4058';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 30, 48, 0, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+
+  // portal surface
+  const g2 = ctx.createLinearGradient(0, -46, 0, 46);
+  g2.addColorStop(0, '#e6fdff');
+  g2.addColorStop(0.35, '#4fb4ff');
+  g2.addColorStop(0.75, '#2a49c8');
+  g2.addColorStop(1, '#160a52');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 24, 42, 0, 0, TAU);
+  ctx.fillStyle = g2;
+  ctx.fill();
+
+  // swirls
+  const t0 = portal.t;
+  ctx.strokeStyle = 'rgba(220,250,255,.55)';
+  ctx.lineWidth = 1.6;
+  for (let i = 0; i < 4; i++) {
+    const t = t0 * 2 + i * 1.57;
+    ctx.beginPath();
+    ctx.ellipse(Math.cos(t) * 6, Math.sin(t * 1.3) * 9, 17 - Math.abs(Math.sin(t)) * 7, 34, t * 0.5, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHero() {
+  if (!hero) return;
+  const bob = hero.moving ? Math.sin(hero.walkT) * 2.2 : Math.sin(time * 2.4) * 1.2;
+  const flip = Math.cos(hero.aim) < 0;
+  const elev = elevationAt(hero.x, hero.y);
+
+  shadowBlob(hero.x, hero.y + 2 - elev, 24, 9, 0.55);
+
+  ctx.save();
+  if (hero.hurtT > 0) ctx.filter = 'brightness(2.2) saturate(0.4)';
+  drawSprite('hero', hero.x, hero.y + bob - elev, 0.82, flip);
+  ctx.filter = 'none';
+  ctx.restore();
+
+  const p = hero.swingT > 0 ? 1 - hero.swingT / hero.swingDur : 0;
+  const ang = hero.swingT > 0 ? hero.swingAim - 1.2 + 2.4 * easeOut(p) : hero.aim;
+  const handX = hero.x + Math.cos(hero.aim) * 9;
+  const handY = hero.y - 34 + Math.sin(hero.aim) * 2 + bob - elev;
+
+  if (hero.swingT > 0) {
+    const a0 = hero.swingAim - 1.2;
+    const a1 = hero.swingAim - 1.2 + 2.4 * easeOut(p);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.beginPath();
+    ctx.arc(hero.x, hero.y - 30 - elev, 68, a0, a1);
+    ctx.strokeStyle = 'rgba(170,210,255,' + (0.16 * (1 - p)).toFixed(3) + ')';
+    ctx.lineWidth = 24;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.3 * (1 - p)).toFixed(3) + ')';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const sw = assets.sword;
+  if (sw) {
+    ctx.save();
+    ctx.translate(handX, handY);
+    ctx.rotate(ang);
+    ctx.drawImage(sw.img, -10, -11, 104 * 0.9, 24 * 0.9);
+    ctx.restore();
+  }
+}
+
+function drawMonster(m) {
+  const a = assets[m.kind];
+  const alpha = m.dead ? clamp(1 - m.deadT / 0.85, 0, 1) : 1;
+  const sink = m.dead ? m.deadT * 10 : 0;
+  const elev = elevationAt(m.x, m.y);
+  const by = m.y - elev;
+
+  if (m.isBoss && !m.dead) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.5 + 0.5 * Math.sin(time * 4);
+    const gr = ctx.createRadialGradient(m.x, m.y - 50, 8, m.x, m.y - 50, 160);
+    gr.addColorStop(0, 'rgba(255,70,25,' + (0.10 + 0.07 * pulse).toFixed(3) + ')');
+    gr.addColorStop(0.6, 'rgba(255,40,10,' + (0.04 + 0.03 * pulse).toFixed(3) + ')');
+    gr.addColorStop(1, 'rgba(255,20,0,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y - 50, 160, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  shadowBlob(m.x, by + 1, (m.isBoss ? 40 : 20) * m.size, (m.isBoss ? 14 : 8) * m.size, 0.5 * alpha);
+
+  if (m.windup > 0 && !m.dead) {
+    const t = 1 - m.windup / m.windupMax;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(255,80,60,' + (0.18 + 0.3 * t).toFixed(3) + ')';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(m.x, by - 26 * m.size, 24 * m.size * (1.35 - t * 0.35), 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  if (m.hurtT > 0 && !m.dead) ctx.filter = 'brightness(2.6) saturate(0.3)';
+  if (m.kind === 'imp') {
+    const hop = m.moving ? Math.abs(Math.sin(m.animT * 9)) * -3 : 0;
+    drawSprite(m.kind, m.x, by + hop + sink, m.size, m.facingLeft, alpha);
+  } else {
+    drawSprite(m.kind, m.x, by + sink + (m.lungeT > 0 ? 2 : 0), m.size, m.facingLeft, alpha);
+  }
+  ctx.filter = 'none';
+  ctx.restore();
+
+  if (!m.dead && m.isBoss) {
+    if (m.bossPhase === 'rangeWind') {
+      const prog = clamp(1 - m.phaseT / 1.2, 0, 1);
+      const ox = m.x + Math.cos(m.attackAim) * (m.isSuper ? 28 : 22);
+      const oy = m.y - 52 + Math.sin(m.attackAim) * 8;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const rr = (m.isSuper ? 14 : 10) + (m.isSuper ? 26 : 20) * prog;
+      const og = ctx.createRadialGradient(ox, oy, 0, ox, oy, rr);
+      og.addColorStop(0, 'rgba(255,255,225,1)');
+      og.addColorStop(0.3, 'rgba(255,175,65,.9)');
+      og.addColorStop(1, 'rgba(255,80,20,0)');
+      ctx.fillStyle = og;
+      ctx.beginPath();
+      ctx.arc(ox, oy, rr, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    if (m.bossPhase === 'meleeWind') {
+      const prog = clamp(1 - m.phaseT / m.meleeWind, 0, 1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,90,40,' + (0.15 + 0.35 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y - 58 * m.size, (m.isSuper ? 54 : 44) + 6 * Math.sin(time * 16), 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (m.bossPhase === 'rainCast') {
+      const prog = clamp(1 - m.phaseT / 0.6, 0, 1);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,120,50,' + (0.2 + 0.5 * prog).toFixed(3) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y - 90 * m.size, 60 + 24 * Math.sin(time * 10), 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  if (!m.dead && (m.hp < m.maxHp || m.aggro)) {
+    const w = m.isBoss ? 84 : Math.max(28, 38 * m.size);
+    const h = m.isBoss ? 8 : 5;
+    const bx = m.x - w / 2;
+    const by2 = by - (a ? a.h * m.size : 60) - 6;
+    const pct = clamp(m.hp / m.maxHp, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    ctx.fillRect(bx - 1, by2 - 1, w + 2, h + 2);
+    ctx.fillStyle = '#3a0b10';
+    ctx.fillRect(bx, by2, w, h);
+    const grad = ctx.createLinearGradient(bx, by2, bx, by2 + h);
+    grad.addColorStop(0, '#ff6b5c');
+    grad.addColorStop(1, '#a7121f');
+    ctx.fillStyle = grad;
+    ctx.fillRect(bx, by2, w * pct, h);
+    ctx.strokeStyle = 'rgba(0,0,0,.8)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by2 + 0.5, w - 1, h - 1);
+  }
+}
+
+function drawProjectiles() {
+  for (const p of projectiles) {
+    const fire = p.type === 'fire' || p.type === 'bossfire';
+    const col = fire ? '255,160,45' : '175,110,255';
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 26);
+    g.addColorStop(0, 'rgba(255,255,235,.95)');
+    g.addColorStop(0.3, 'rgba(' + col + ',.8)');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 26, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.save();
+    if (p.glow) ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (0.4 + a * 0.6), 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawNumbers() {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const n of numbers) {
+    const a = clamp(n.life / n.max, 0, 1);
+    const pop = 1 + (1 - a) * 0.25;
+    ctx.globalAlpha = a;
+    ctx.font = '700 ' + Math.round(17 * pop) + 'px "Segoe UI",Arial,sans-serif';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,.8)';
+    ctx.strokeText(n.text, n.x, n.y);
+    ctx.fillStyle = n.color;
+    ctx.fillText(n.text, n.x, n.y);
+  }
+  ctx.restore();
+}
+
+function drawMeteorWarnings() {
+  for (const mt of meteors) {
+    if (mt.state !== 'warn') continue;
+    const p = clamp(1 - mt.t / mt.maxT, 0, 1);
+    ctx.save();
+    ctx.translate(mt.x, mt.y);
+    const g = ctx.createRadialGradient(0, 0, 4, 0, 0, mt.r);
+    g.addColorStop(0, 'rgba(255,120,40,' + (0.10 + 0.22 * p).toFixed(3) + ')');
+    g.addColorStop(0.7, 'rgba(255,60,20,' + (0.08 + 0.18 * p).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(255,30,10,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, mt.r, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,150,80,' + (0.45 + 0.5 * p).toFixed(3) + ')';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = -time * 40;
+    ctx.beginPath();
+    ctx.arc(0, 0, mt.r, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,220,160,' + (0.25 + 0.55 * p).toFixed(3) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, mt.r * p, 0, TAU);
+    ctx.stroke();
+    const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, 18 + 10 * p);
+    cg.addColorStop(0, 'rgba(255,240,190,.9)');
+    cg.addColorStop(0.4, 'rgba(255,140,40,.7)');
+    cg.addColorStop(1, 'rgba(255,60,10,0)');
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18 + 10 * p, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawMeteorBooms() {
+  for (const mt of meteors) {
+    if (mt.state !== 'boom') continue;
+    const k = clamp(mt.life / 0.5, 0, 1);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const rr = mt.r * (1.3 - 0.3 * k);
+    const g = ctx.createRadialGradient(mt.x, mt.y, 0, mt.x, mt.y, rr);
+    g.addColorStop(0, 'rgba(255,245,205,' + (0.8 * k).toFixed(3) + ')');
+    g.addColorStop(0.35, 'rgba(255,150,50,' + (0.6 * k).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(255,60,10,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(mt.x, mt.y, rr, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawArenaGlow() {
+  if (!map || !map.isArena) return;
+  const gx = ((map.bossGateX0 + map.bossGateX1 + 1) / 2) * TILE;
+  const gy = (map.bossGateY + 0.5) * TILE;
+  const active = arena && arena.triggered && arena.phase !== 'fight' && arena.phase !== 'victory';
+  const k = active ? 1 : 0.3;
+  const fl = 0.7 + 0.3 * Math.sin(time * 5);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(gx, gy, 4, gx, gy, 190);
+  g.addColorStop(0, 'rgba(255,80,30,' + (0.10 * k * fl).toFixed(3) + ')');
+  g.addColorStop(0.5, 'rgba(255,40,15,' + (0.04 * k * fl).toFixed(3) + ')');
+  g.addColorStop(1, 'rgba(255,20,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(gx, gy, 190, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function render() {
+  ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  ctx.fillStyle = '#07060a';
+  ctx.fillRect(0, 0, view.w, view.h);
+  if (!map) return;
+
+  const sh = shake > 0.1 ? shake : 0;
+  const ox = -cam.x + (Math.random() - 0.5) * sh;
+  const oy = -cam.y + (Math.random() - 0.5) * sh;
+
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  drawFloor();
+  drawTorches();
+  drawBones();
+  drawDecals();
+  drawBossFx();
+  drawArenaGlow();
+  drawMeteorWarnings();
+  drawPortal();
+
+  // shadows + entities sorted by feet Y
+  const ents = [];
+  if (hero) ents.push({ y: hero.y, t: 0 });
+  for (const m of monsters) ents.push({ y: m.y, t: 1, m });
+  ents.sort((a, b) => a.y - b.y);
+  for (const e of ents) {
+    if (e.t === 0) drawHero();
+    else drawMonster(e.m);
+  }
+
+  drawProjectiles();
+  drawParticles();
+  drawMeteorBooms();
+  drawNumbers();
+
+  ctx.restore();
+
+  if (darkness > 0.01) {
+    ctx.fillStyle = 'rgba(3,2,4,' + darkness.toFixed(3) + ')';
+    ctx.fillRect(0, 0, view.w, view.h);
+  }
+
+  // красное свечение Диабло пробивает тьму
+  const bossGlow = monsters.find(m => m.isBoss && !m.dead);
+  if (bossGlow) {
+    const bx = bossGlow.x - cam.x, by = bossGlow.y - cam.y - 60;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(bx, by, 10, bx, by, 250);
+    g.addColorStop(0, 'rgba(255,70,25,' + (0.05 + darkness * 0.2).toFixed(3) + ')');
+    g.addColorStop(0.6, 'rgba(255,40,10,' + (0.02 + darkness * 0.1).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(255,20,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.restore();
+  }
+
+  // screen-space lighting: warm light around hero + dark edges
+  if (hero) {
+    const hx = hero.x - cam.x, hy = hero.y - cam.y - 20;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const warm = ctx.createRadialGradient(hx, hy, 10, hx, hy, 260);
+    warm.addColorStop(0, 'rgba(255,190,110,.10)');
+    warm.addColorStop(0.5, 'rgba(255,150,60,.045)');
+    warm.addColorStop(1, 'rgba(255,120,30,0)');
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, view.w, view.h);
+    ctx.restore();
+
+    const rad = Math.max(view.w, view.h) * 0.66;
+    const dark = ctx.createRadialGradient(hx, hy, rad * 0.28, hx, hy, rad);
+    dark.addColorStop(0, 'rgba(0,0,0,0)');
+    dark.addColorStop(0.6, 'rgba(0,0,0,.16)');
+    dark.addColorStop(1, 'rgba(0,0,0,.72)');
+    ctx.fillStyle = dark;
+    ctx.fillRect(0, 0, view.w, view.h);
+  }
+}
+
+/* ============================================================
+   MINIMAP
+   ============================================================ */
+function drawMinimap() {
+  if (!map) return;
+  const W = mm.width, H = mm.height;
+  mmx.setTransform(1, 0, 0, 1, 0, 0);
+  mmx.fillStyle = '#1a1420';
+  mmx.fillRect(0, 0, W, H);
+  const sx = W / map.W, sy = H / map.H;
+  for (let y = 0; y < map.H; y++) {
+    for (let x = 0; x < map.W; x++) {
+      const t = map.grid[y][x];
+      let color = null;
+      if (t === T_FLOOR) color = '#3e3629';
+      else if (t === T_VOID) color = '#080611';
+      else if (t === T_BRIDGE) color = '#9a7434';
+      else if (t === T_PLATFORM) color = '#5f5138';
+      else if (t === T_STAIRS) color = '#7a643f';
+      else if (t === T_TUNNEL) color = '#201a15';
+      else if (t === T_GATE) color = '#b07a2a';
+      else if (t === T_BOSS_GATE) color = '#a8311e';
+      if (color) {
+        mmx.fillStyle = color;
+        mmx.fillRect(x * sx, y * sy, Math.ceil(sx), Math.ceil(sy));
+      }
+    }
+  }
+  // portal
+  if (portal) {
+    mmx.fillStyle = '#6fe0ff';
+    mmx.beginPath();
+    mmx.arc(portal.x / TILE * sx, portal.y / TILE * sy, 4, 0, TAU);
+    mmx.fill();
+  }
+  // monsters
+  for (const m of monsters) {
+    if (m.dead) continue;
+    if (m.isBoss) {
+      mmx.fillStyle = '#ff8a3a';
+      mmx.beginPath();
+      mmx.arc(m.x / TILE * sx, m.y / TILE * sy, 4.6, 0, TAU);
+      mmx.fill();
+      mmx.strokeStyle = 'rgba(255,150,80,.65)';
+      mmx.lineWidth = 2;
+      mmx.beginPath();
+      mmx.arc(m.x / TILE * sx, m.y / TILE * sy, 7.5, 0, TAU);
+      mmx.stroke();
+    } else {
+      mmx.fillStyle = '#e04b4b';
+      mmx.beginPath();
+      mmx.arc(m.x / TILE * sx, m.y / TILE * sy, 2, 0, TAU);
+      mmx.fill();
+    }
+  }
+  // hero
+  if (hero) {
+    mmx.fillStyle = '#ffd257';
+    mmx.beginPath();
+    mmx.arc(hero.x / TILE * sx, hero.y / TILE * sy, 3.4, 0, TAU);
+    mmx.fill();
+    mmx.strokeStyle = 'rgba(255,220,140,.6)';
+    mmx.lineWidth = 1.5;
+    mmx.beginPath();
+    mmx.arc(hero.x / TILE * sx, hero.y / TILE * sy, 6.5, 0, TAU);
+    mmx.stroke();
+  }
+}
+
+/* ============================================================
+   UI
+   ============================================================ */
+let toastTimer = 0;
+function toast(text, color) {
+  toastEl.textContent = text;
+  toastEl.style.color = color || '#e8d6a8';
+  toastEl.classList.remove('show');
+  void toastEl.offsetWidth;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1900);
+}
+
+function updateHud() {
+  if (!hero) return;
+  const hpPct = clamp(hero.hp / hero.maxHp, 0, 1);
+  const mpPct = clamp(hero.mana / hero.maxMana, 0, 1);
+  E.hpLiquid.style.height = (hpPct * 100).toFixed(1) + '%';
+  E.mpLiquid.style.height = (mpPct * 100).toFixed(1) + '%';
+  E.hpNum.textContent = Math.ceil(Math.max(0, hero.hp));
+  E.hpMax.textContent = '/' + hero.maxHp;
+  E.mpNum.textContent = Math.floor(Math.max(0, hero.mana));
+  E.mpMax.textContent = '/' + hero.maxMana;
+  E.hpPot.textContent = hero.potions.hp;
+  E.mpPot.textContent = hero.potions.mp;
+  E.potHp.classList.toggle('empty', hero.potions.hp <= 0);
+  E.potMp.classList.toggle('empty', hero.potions.mp <= 0);
+  E.orbHp.classList.toggle('low', hpPct < 0.3);
+
+  E.cdSword.style.height = ((hero.atkCd / hero.atkCdMax) * 100).toFixed(0) + '%';
+  E.cdFire.style.height = ((hero.castCd / hero.castCdMax) * 100).toFixed(0) + '%';
+
+  const xpPct = clamp(hero.xp / hero.xpNext, 0, 1) * 100;
+  E.xpFill.style.width = xpPct.toFixed(1) + '%';
+  E.xpText.textContent = hero.xp + ' / ' + hero.xpNext;
+  E.lvlNum.textContent = hero.level;
+  E.stats.innerHTML = 'Убито: <b>' + state.kills + '</b> · Золото: <b>' + state.gold + '</b>';
+
+  const alive = monsters.reduce((n, m) => n + (m.dead ? 0 : 1), 0);
+  const boss = monsters.find(m => m.isBoss && !m.dead);
+  E.bossbar.classList.toggle('on', !!boss);
+  if (boss) E.bossFill.style.width = (clamp(boss.hp / boss.maxHp, 0, 1) * 100).toFixed(1) + '%';
+
+  E.depthNum.textContent = state.depth;
+  const until = Math.max(0, MAX_DEPTH - state.depth);
+  const bossAlive = !!boss;
+  const bossDead = !!(arena && arena.boss && arena.boss.dead) || (arena && arena.phase === 'victory');
+  let eta;
+  if (until > 0) eta = 'До босса: ' + until;
+  else if (bossAlive) eta = 'Финал: Диабло';
+  else if (bossDead) eta = 'Диабло повержен';
+  else eta = 'Финал: Диабло';
+  E.bossEta.textContent = eta;
+  E.bossEta.classList.toggle('now', until === 0);
+  E.miniMeta.textContent = 'УР. ' + state.depth + '/' + MAX_DEPTH + ' · ' + eta;
+
+  let obj = '';
+  if (map && map.isArena && arena) {
+    const a = arena;
+    if (!a.triggered) {
+      obj = alive > 0 ? 'Прислужники Диабло: <b>' + alive + '</b>' : 'Войдите в арену';
+    } else if (a.phase === 'seal') obj = 'Двери заперты...';
+    else if (a.phase === 'dim') obj = 'Свет гаснет...';
+    else if (a.phase === 'open') obj = 'Стены дрожат...';
+    else if (a.phase === 'emerge') obj = 'Диабло пробудился';
+    else if (a.phase === 'fight') obj = 'Убейте Диабло';
+    else obj = 'Диабло повержен';
+  } else if (portal) {
+    obj = 'Портал открыт — <b>войдите в него</b>';
+  } else {
+    obj = 'Осталось врагов: <b>' + alive + '</b>';
+  }
+  objectiveEl.innerHTML = obj;
+  dmgFlashEl.style.opacity = flash.toFixed(2);
+}
+
+/* ============================================================
+   OVERLAYS / GAME FLOW
+   ============================================================ */
+function showOverlay(html) {
+  overlay.innerHTML = html;
+  overlay.classList.add('on');
+}
+function hideOverlay() {
+  overlay.classList.remove('on');
+  overlay.innerHTML = '';
+}
+
+function titleScreen() {
+  showOverlay(`
+    <div class="ov-inner">
+      <h1 class="ov-title">ДИАБЛО</h1>
+      <div class="ov-sub">превью: три уровня</div>
+      <div class="ov-controls">
+        <span><b>W A S D</b> движение</span>
+        <span><b>ЛКМ / Пробел</b> удар мечом</span>
+        <span><b>ПКМ / E</b> огненный шар</span>
+        <span><b>1</b> флакон жизни</span>
+        <span><b>2</b> флакон маны</span>
+      </div>
+      <button class="btn" data-act="start" type="button">Войти в подземелье</button>
+      <div class="ov-tip">Три уровня, в конце — арена Диабло. Уходите из красного сектора и с линии огня, используйте мост, тоннель и ступени, чтобы оторваться. Флаконы выпадают с врагов.</div>
+    </div>
+  `);
+}
+
+function gameOver() {
+  state.mode = 'dead';
+  hero.hp = 0;
+  shake = 16;
+  sfx('death');
+  addBloodDecal(hero.x, hero.y, 1.3);
+  burst(hero.x, hero.y - 30, 26, { color: '#9c1024', min: 30, max: 190, lifeMin: 0.3, lifeMax: 0.9, sizeMin: 2, sizeMax: 5, g: 300 });
+  setTimeout(() => {
+    if (state.mode !== 'dead') return;
+    showOverlay(`
+      <div class="ov-inner">
+        <h1 class="ov-title dead">ВЫ ПОГИБЛИ</h1>
+        <div class="ov-sub">тьма забрала героя</div>
+        <div class="ov-stats">
+          <div>Уровень<b>${state.depth}</b></div>
+          <div>Убито<b>${state.kills}</b></div>
+          <div>Золото<b>${state.gold}</b></div>
+          <div>Уровень<b>${hero.level}</b></div>
+        </div>
+        <button class="btn" data-act="restart" type="button">Попробовать снова</button>
+        <div class="ov-tip">или нажмите Enter / R</div>
+      </div>
+    `);
+  }, 750);
+}
+
+function startGame() {
+  initAudio();
+  sfx('click');
+  hero = makeHero();
+  state.mode = 'playing';
+  state.kills = 0;
+  state.gold = 0;
+  state.depth = 1;
+  setCinematic(false);
+  hideCineText();
+  hideOverlay();
+  buildLevel(1);
+  updateHud();
+  toast('Уровень 1 из 3 — зачистите подземелье', '#e8d6a8');
+}
+
+overlay.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  initAudio();
+  if (b.dataset.act === 'start' || b.dataset.act === 'restart') startGame();
+});
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+function canvasPoint(e) {
+  const r = canvas.getBoundingClientRect();
+  mouse.sx = e.clientX - r.left;
+  mouse.sy = e.clientY - r.top;
+  mouse.has = true;
+}
+
+canvas.addEventListener('mousemove', canvasPoint);
+canvas.addEventListener('mousedown', e => {
+  initAudio();
+  canvasPoint(e);
+  if (e.button === 0) { mouse.left = true; tryAttack(); }
+  if (e.button === 2) { e.preventDefault(); mouse.right = true; tryCast(); }
+});
+window.addEventListener('mouseup', e => {
+  if (e.button === 0) mouse.left = false;
+  if (e.button === 2) mouse.right = false;
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mouseleave', () => { mouse.left = false; mouse.right = false; });
+document.getElementById('game').addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('keydown', e => {
+  const raw = e.key;
+  const k = raw.toLowerCase();
+  if (k === ' ' || k === 'arrowup' || k === 'arrowdown' || k === 'arrowleft' || k === 'arrowright') e.preventDefault();
+  if (keys[k]) return;
+  keys[k] = true;
+  initAudio();
+  if (k === '1' || k === '!') usePotion('hp');
+  if (k === '2' || k === '@') usePotion('mp');
+  if (k === 'e' || k === 'у') tryCast();
+  if (k === ' ') tryAttack();
+  if (k === 'enter' && state.mode !== 'playing') startGame();
+  if (k === 'r' && state.mode === 'dead') startGame();
+});
+window.addEventListener('keyup', e => {
+  keys[e.key.toLowerCase()] = false;
+});
+window.addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  mouse.left = mouse.right = false;
+});
+
+E.potHp.addEventListener('click', e => { e.stopPropagation(); initAudio(); usePotion('hp'); });
+E.potMp.addEventListener('click', e => { e.stopPropagation(); initAudio(); usePotion('mp'); });
+E.slotSword.addEventListener('click', e => { e.stopPropagation(); initAudio(); tryAttack(); });
+E.slotFire.addEventListener('click', e => { e.stopPropagation(); initAudio(); tryCast(); });
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+  last = now;
+  time += dt;
+  shake = Math.max(0, shake - 90 * dt);
+  flash = Math.max(0, flash - dt * 2.6);
+  darkness = lerp(darkness, darkTarget, 1 - Math.pow(0.25, dt));
+
+  if (state.mode === 'playing') {
+    update(dt);
+  } else {
+    updateParticles(dt);
+    updateNumbers(dt);
+  }
+
+  render();
+  updateHud();
+  if (time - lastMM > 0.12) { drawMinimap(); lastMM = time; }
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+   DEBUG HOOK (полезно для автотестов в консоли браузера)
+   ============================================================ */
+window.__diablo = {
+  get state() { return state; },
+  get hero() { return hero; },
+  get monsters() { return monsters; },
+  get projectiles() { return projectiles; },
+  get map() { return map; },
+  get portal() { return portal; },
+  get assets() { return assets; },
+  get cam() { return cam; },
+  get view() { return view; },
+  get arena() { return arena; },
+  get meteors() { return meteors; },
+  get darkness() { return darkness; },
+  collides,
+  collidesForBoss,
+  start: startGame,
+  potion: usePotion,
+  damage: (m, d) => damageMonster(m, d, 0, 100),
+  goto: depth => { if (hero) { buildLevel(depth); updateHud(); } },
+};
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+loadAssets().then(() => {
+  // idle demo backdrop for the title screen
+  hero = null;
+  titleScreen();
+  requestAnimationFrame(loop);
+});
+})();
+</script>
+</body>
+</html>
